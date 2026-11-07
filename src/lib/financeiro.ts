@@ -18,6 +18,8 @@ export type Lancamento = {
   cancelado: boolean;
   criado_por: string | null;
   autora: string | null;
+  produto_id: string | null;
+  quantidade: number;
 };
 
 export const CATEGORIAS_ENTRADA = ["Serviço", "Produto", "Curso", "Brinde", "Outro"];

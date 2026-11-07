@@ -34,9 +34,12 @@ import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { alternarCancelamento, salvarLancamento } from "./actions";
 
+export type ProdutoCaixa = { id: string; nome: string; preco: number; estoque: number };
+
 export type DadosFormulario = {
   taxas: TaxaPagamento[];
   sugestoes: string[];
+  produtos: ProdutoCaixa[];
   hoje: string;
 };
 
@@ -96,6 +99,9 @@ function LancamentoForm({
   const [forma, setForma] = useState<FormaPagamento | "">(lancamento?.forma_pagamento ?? "");
   const [parcelas, setParcelas] = useState(lancamento?.parcelas && lancamento.parcelas > 1 ? lancamento.parcelas : 2);
   const [categoria, setCategoria] = useState(lancamento?.categoria ?? (tipo === "entrada" ? "Serviço" : "Outros"));
+  const [descricao, setDescricao] = useState(lancamento?.descricao ?? "");
+  const [produtoId, setProdutoId] = useState(lancamento?.produto_id ?? "");
+  const [quantidade, setQuantidade] = useState(lancamento?.quantidade ?? 1);
   const bloqueado = !podeEditar || lancamento?.cancelado;
 
   useEffect(() => {
@@ -124,6 +130,23 @@ function LancamentoForm({
           (t) => t.forma === forma && t.parcelas === (forma === "credito_parcelado" ? parcelas : 1)
         )?.taxa_percentual ?? 0);
 
+  const vendeProduto = tipo === "entrada" && categoria === "Produto";
+  const produtoEscolhido = dados.produtos.find((p) => p.id === produtoId);
+
+  function escolherProduto(id: string, qtd = quantidade) {
+    setProdutoId(id);
+    const p = dados.produtos.find((x) => x.id === id);
+    if (!p) return;
+    setDescricao(qtd > 1 ? `${qtd}x ${p.nome}` : p.nome);
+    setValorTexto(numeroParaCampo(p.preco * qtd));
+  }
+
+  function mudarQuantidade(qtd: number) {
+    const q = Math.max(1, qtd);
+    setQuantidade(q);
+    if (produtoId) escolherProduto(produtoId, q);
+  }
+
   function trocarTipo(t: TipoLancamento) {
     setTipo(t);
     setCategoria(t === "entrada" ? "Serviço" : "Outros");
@@ -146,6 +169,8 @@ function LancamentoForm({
       <input type="hidden" name="tipo" value={tipo} />
       <input type="hidden" name="forma_pagamento" value={tipo === "entrada" ? forma : ""} />
       <input type="hidden" name="parcelas" value={forma === "credito_parcelado" ? parcelas : 1} />
+      <input type="hidden" name="produto_id" value={vendeProduto ? produtoId : ""} />
+      <input type="hidden" name="quantidade" value={vendeProduto ? quantidade : 1} />
 
       <fieldset disabled={bloqueado} className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
@@ -169,6 +194,59 @@ function LancamentoForm({
           ))}
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="categoria">Categoria</Label>
+          <NativeSelect
+            id="categoria"
+            name="categoria"
+            value={ehBrinde ? "Brinde" : categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+          >
+            {(tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+        {vendeProduto && (
+          <div className="bg-secondary/40 space-y-3 rounded-lg p-3">
+            <div className="space-y-2">
+              <Label htmlFor="produto">Produto vendido</Label>
+              <NativeSelect
+                id="produto"
+                value={produtoId}
+                onChange={(e) => escolherProduto(e.target.value)}
+              >
+                <option value="">Escolha o produto…</option>
+                {dados.produtos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome} · {formatMoeda(p.preco)} · {p.estoque} em estoque
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium">Quantidade</span>
+              <span className="flex items-center gap-1">
+                <Button type="button" variant="outline" size="icon" aria-label="Menos" onClick={() => mudarQuantidade(quantidade - 1)}>
+                  −
+                </Button>
+                <span className="w-9 text-center text-lg font-semibold tabular-nums">{quantidade}</span>
+                <Button type="button" variant="outline" size="icon" aria-label="Mais" onClick={() => mudarQuantidade(quantidade + 1)}>
+                  +
+                </Button>
+              </span>
+            </div>
+            {produtoEscolhido && produtoEscolhido.estoque - quantidade < 0 && !lancamento && (
+              <p className="text-sm text-amber-800">
+                O sistema tem só {produtoEscolhido.estoque} em estoque. Dá para registrar mesmo
+                assim; confira no próximo inventário.
+              </p>
+            )}
+            <p className="text-muted-foreground text-xs">O estoque é baixado ao registrar.</p>
+          </div>
+        )}
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <div className="space-y-2">
             <Label htmlFor="valor">Valor</Label>
@@ -207,7 +285,8 @@ function LancamentoForm({
             id="descricao"
             name="descricao"
             list="sugestoes-descricao"
-            defaultValue={lancamento?.descricao}
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
             placeholder={tipo === "entrada" ? "Ex.: Design + buço" : "Ex.: Compra de henna"}
             autoComplete="off"
             required
@@ -279,21 +358,6 @@ function LancamentoForm({
           </p>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="categoria">Categoria</Label>
-          <NativeSelect
-            id="categoria"
-            name="categoria"
-            value={ehBrinde ? "Brinde" : categoria}
-            onChange={(e) => setCategoria(e.target.value)}
-          >
-            {(tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA).map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
       </fieldset>
 
       {lancamento?.cancelado && (

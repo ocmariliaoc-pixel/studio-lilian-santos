@@ -2,6 +2,8 @@ import { CalendarDays, Cake, Target, TrendingUp, UserRoundCheck, Users, Wallet }
 import Link from "next/link";
 import { getPerfil, isAdmin } from "@/lib/auth";
 import { formatDataExtenso, saudacao } from "@/lib/format";
+import { lerStatusInventario } from "@/lib/produtos-server";
+import { AlertaInventario } from "@/components/alerta-inventario";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Atalho = { href: string; titulo: string; descricao: string; icon: typeof Wallet };
@@ -25,6 +27,7 @@ export default async function InicioPage() {
   const admin = isAdmin(perfil);
   const atalhos = admin ? ATALHOS_ADMIN : ATALHOS_PROFISSIONAL;
   const primeiroNome = perfil.nome.split(" ")[0];
+  const inventario = await lerStatusInventario();
 
   return (
     <div className="space-y-8">
@@ -39,6 +42,8 @@ export default async function InicioPage() {
             : "Aqui ficam seus atendimentos do dia e as fichas das clientes."}
         </p>
       </div>
+
+      <AlertaInventario status={inventario} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {atalhos.map(({ href, titulo, descricao, icon: Icon }) => (

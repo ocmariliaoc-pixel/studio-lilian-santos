@@ -142,6 +142,8 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - Bloqueios de agenda ficam para a Fase 4 (Agenda).
 - **Caixa (Fase 5 adiantada, pedido da Marilia):** tabela única `lancamentos` (entrada/saída) substitui o Google Forms "LS | Controle Financeiro" e é a base de receitas e despesas da Fase 5 (que vai acrescentar itens, vínculo com cliente/agendamento e pacotes — evoluir esta tabela, não criar outra). A taxa da maquininha é copiada por trigger de `taxas_pagamento`; `valor_liquido` é coluna gerada. Valor 0 = brinde. Cancelar em vez de excluir.
 - **Exceção de permissão:** a profissional (Lilian) LANÇA no caixa e corrige/cancela o que ela mesma lançou; admin corrige tudo. O resto do financeiro e as metas seguem só leitura para ela.
+- **Produtos e estoque** (`/produtos`, todas veem; só admin cadastra/edita preço): venda no caixa com categoria "Produto" aponta `produto_id` + `quantidade` e um trigger baixa o estoque (corrigir/cancelar devolve). Estoque pode ficar negativo — o inventário corrige.
+- **Inventário quinzenal:** `registrar_inventario(jsonb)` (security definer, qualquer usuária ativa) grava a contagem em `inventarios` e ajusta o estoque. Alerta no Início e em Produtos quando passam `configuracoes.inventario_intervalo_dias` (15) desde o último. Funções de servidor em `src/lib/produtos-server.ts` (separadas de `src/lib/produtos.ts`, que é usado por componentes de cliente).
 - Exportação Excel: `src/app/(app)/financeiro/exportar/route.ts` (exceljs), abas Lançamentos e Resumo.
 - Variáveis de ambiente: ver `.env.example`.
 - Antes de commitar: `npm run lint` e `npm run build`.

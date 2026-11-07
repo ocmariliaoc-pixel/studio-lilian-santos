@@ -20,6 +20,8 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
   const valor = parseNumeroBR(String(formData.get("valor") ?? ""));
   const formaTexto = String(formData.get("forma_pagamento") ?? "");
   const parcelas = Number(formData.get("parcelas") ?? 1);
+  const produtoTexto = String(formData.get("produto_id") ?? "");
+  const quantidade = Number(formData.get("quantidade") ?? 1);
 
   if (tipo !== "entrada" && tipo !== "saida") return falha("Escolha entrada ou saída.");
   if (!isDataISO(data)) return falha("Data inválida.");
@@ -35,6 +37,11 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
   if (forma === "credito_parcelado" && (!Number.isInteger(nParcelas) || nParcelas < 2 || nParcelas > 12))
     return falha("Escolha o número de parcelas.");
 
+  const ehVendaProduto = tipo === "entrada" && categoria === "Produto" && produtoTexto !== "";
+  if (ehVendaProduto && !/^[0-9a-f-]{36}$/i.test(produtoTexto)) return falha("Produto inválido.");
+  if (ehVendaProduto && (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 999))
+    return falha("Quantidade inválida.");
+
   const dados = {
     tipo,
     data,
@@ -44,6 +51,8 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
     valor: Math.round(valor * 100) / 100,
     forma_pagamento: forma,
     parcelas: nParcelas,
+    produto_id: ehVendaProduto ? produtoTexto : null,
+    quantidade: ehVendaProduto ? quantidade : 1,
   };
 
   const supabase = await createClient();
@@ -55,6 +64,7 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
   if (id && count === 0) return falha("Você só pode corrigir lançamentos feitos por você.");
 
   revalidatePath("/financeiro");
+  revalidatePath("/produtos");
   return sucesso();
 }
 
@@ -68,5 +78,6 @@ export async function alternarCancelamento(id: string, cancelado: boolean): Prom
   if (error) return falha(mensagemErroBanco(error));
   if (count === 0) return falha("Você só pode cancelar lançamentos feitos por você.");
   revalidatePath("/financeiro");
+  revalidatePath("/produtos");
   return sucesso();
 }
