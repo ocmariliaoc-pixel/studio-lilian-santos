@@ -116,6 +116,13 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - Mostrar sempre bruto, taxas da maquininha e líquido.
 - Importar as vendas da inauguração como primeiros dados reais (Fase 5 ou 7), sem versionar a planilha no Git (dados de clientes).
 
+## 6.2 Cursos e agenda (regra para a Fase 4)
+
+- Cursos são produtos **sem estoque** (`produtos.controla_estoque = false`); dependem da **disponibilidade da agenda**.
+- Duração em dias em `produtos.duracao_dias`: design de sobrancelha 2 dias, brow lamination 0,5 dia (meio período), micropigmentação 3 dias (dermaplaning: a definir).
+- **Na Agenda, marcar uma turma de curso ocupa a agenda da Lilian**: dias inteiros (horário de funcionamento do dia) ou meio período (manhã ou tarde) quando 0,5. Esses horários não são oferecidos para atendimentos — tratar como bloqueio gerado pela turma, respeitando dias fechados (turma de 2 dias que começa sábado continua no próximo dia aberto).
+- Preço do curso é à vista; no cartão a cliente paga a taxa da maquininha (o caixa tem o botão "Repassar a taxa": valor = preço ÷ (1 − taxa)).
+
 ## 9. Informações a preencher pela Lilian
 
 - [ ] Lista de serviços: nome, preço, duração, intervalo de retorno

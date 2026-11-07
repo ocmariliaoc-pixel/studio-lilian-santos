@@ -22,7 +22,7 @@ export default async function ProdutosPage({
   const [{ data, error }, status] = await Promise.all([
     supabase
       .from("produtos")
-      .select("id, nome, categoria, preco, estoque, ativo")
+      .select("id, nome, categoria, preco, estoque, ativo, controla_estoque, duracao_dias")
       .order("categoria")
       .order("preco"),
     lerStatusInventario(),
@@ -37,7 +37,12 @@ export default async function ProdutosPage({
     );
   }
 
-  const produtos: Produto[] = (data ?? []).map((p) => ({ ...p, preco: Number(p.preco) }));
+  const produtos: Produto[] = (data ?? []).map((p) => ({
+    ...p,
+    preco: Number(p.preco),
+    controla_estoque: p.controla_estoque !== false,
+    duracao_dias: p.duracao_dias == null ? null : Number(p.duracao_dias),
+  }));
 
   return (
     <>

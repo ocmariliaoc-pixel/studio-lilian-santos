@@ -30,7 +30,9 @@ export const CATEGORIAS_SAIDA = [
   "Marketing",
   "Equipamentos",
   "Impostos",
+  "Contador/MEI",
   "Pessoal",
+  "Montagem do studio",
   "Outros",
 ];
 

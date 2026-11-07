@@ -37,7 +37,8 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
   if (forma === "credito_parcelado" && (!Number.isInteger(nParcelas) || nParcelas < 2 || nParcelas > 12))
     return falha("Escolha o número de parcelas.");
 
-  const ehVendaProduto = tipo === "entrada" && categoria === "Produto" && produtoTexto !== "";
+  const ehVendaProduto =
+    tipo === "entrada" && (categoria === "Produto" || categoria === "Curso") && produtoTexto !== "";
   if (ehVendaProduto && !/^[0-9a-f-]{36}$/i.test(produtoTexto)) return falha("Produto inválido.");
   if (ehVendaProduto && (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 999))
     return falha("Quantidade inválida.");

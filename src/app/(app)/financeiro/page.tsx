@@ -52,7 +52,11 @@ export default async function FinanceiroPage({
       .order("criado_em", { ascending: false }),
     supabase.from("taxas_pagamento").select("forma, parcelas, taxa_percentual, ativo"),
     supabase.from("servicos").select("nome").eq("ativo", true).order("nome"),
-    supabase.from("produtos").select("id, nome, preco, estoque").eq("ativo", true).order("nome"),
+    supabase
+      .from("produtos")
+      .select("id, nome, categoria, preco, estoque, controla_estoque")
+      .eq("ativo", true)
+      .order("nome"),
   ]);
 
   if (lanc.error || taxas.error) {
@@ -228,7 +232,11 @@ export default async function FinanceiroPage({
           })) as TaxaPagamento[],
           sugestoes: (servicos.data ?? []).map((s) => s.nome),
           // Sem a migração 0004 a consulta falha e a venda de produto fica indisponível
-          produtos: (produtos.data ?? []).map((p) => ({ ...p, preco: Number(p.preco) })),
+          produtos: (produtos.data ?? []).map((p) => ({
+            ...p,
+            preco: Number(p.preco),
+            controla_estoque: p.controla_estoque !== false,
+          })),
         }}
       />
     </>

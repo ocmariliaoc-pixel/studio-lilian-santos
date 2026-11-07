@@ -34,7 +34,14 @@ import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { alternarCancelamento, salvarLancamento } from "./actions";
 
-export type ProdutoCaixa = { id: string; nome: string; preco: number; estoque: number };
+export type ProdutoCaixa = {
+  id: string;
+  nome: string;
+  categoria: string;
+  preco: number;
+  estoque: number;
+  controla_estoque: boolean;
+};
 
 export type DadosFormulario = {
   taxas: TaxaPagamento[];
@@ -130,8 +137,16 @@ function LancamentoForm({
           (t) => t.forma === forma && t.parcelas === (forma === "credito_parcelado" ? parcelas : 1)
         )?.taxa_percentual ?? 0);
 
-  const vendeProduto = tipo === "entrada" && categoria === "Produto";
-  const produtoEscolhido = dados.produtos.find((p) => p.id === produtoId);
+  const vendeCurso = tipo === "entrada" && categoria === "Curso";
+  const vendeProduto = tipo === "entrada" && (categoria === "Produto" || vendeCurso);
+  const opcoesProduto = dados.produtos.filter((p) =>
+    vendeCurso ? p.categoria === "Cursos" : p.categoria !== "Cursos"
+  );
+  const produtoEscolhido = opcoesProduto.find((p) => p.id === produtoId);
+  // Repasse da taxa: a cliente paga o juro da maquininha e o studio recebe o preço cheio.
+  const base = produtoEscolhido ? produtoEscolhido.preco * quantidade : 0;
+  const valorComRepasse = taxa > 0 && base > 0 ? Math.ceil((base / (1 - taxa / 100)) * 100) / 100 : 0;
+  const repassando = valorComRepasse > 0 && Math.abs(valor - valorComRepasse) < 0.005;
 
   function escolherProduto(id: string, qtd = quantidade) {
     setProdutoId(id);
@@ -212,21 +227,22 @@ function LancamentoForm({
         {vendeProduto && (
           <div className="bg-secondary/40 space-y-3 rounded-lg p-3">
             <div className="space-y-2">
-              <Label htmlFor="produto">Produto vendido</Label>
+              <Label htmlFor="produto">{vendeCurso ? "Curso vendido" : "Produto vendido"}</Label>
               <NativeSelect
                 id="produto"
                 value={produtoId}
                 onChange={(e) => escolherProduto(e.target.value)}
               >
-                <option value="">Escolha o produto…</option>
-                {dados.produtos.map((p) => (
+                <option value="">{vendeCurso ? "Escolha o curso…" : "Escolha o produto…"}</option>
+                {opcoesProduto.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.nome} · {formatMoeda(p.preco)} · {p.estoque} em estoque
+                    {p.nome} · {formatMoeda(p.preco)}
+                    {p.controla_estoque ? ` · ${p.estoque} em estoque` : ""}
                   </option>
                 ))}
               </NativeSelect>
             </div>
-            <div className="flex items-center justify-between gap-3">
+            <div className={cn("flex items-center justify-between gap-3", vendeCurso && "hidden")}>
               <span className="text-sm font-medium">Quantidade</span>
               <span className="flex items-center gap-1">
                 <Button type="button" variant="outline" size="icon" aria-label="Menos" onClick={() => mudarQuantidade(quantidade - 1)}>
@@ -238,13 +254,15 @@ function LancamentoForm({
                 </Button>
               </span>
             </div>
-            {produtoEscolhido && produtoEscolhido.estoque - quantidade < 0 && !lancamento && (
+            {produtoEscolhido?.controla_estoque && produtoEscolhido.estoque - quantidade < 0 && !lancamento && (
               <p className="text-sm text-amber-800">
                 O sistema tem só {produtoEscolhido.estoque} em estoque. Dá para registrar mesmo
                 assim; confira no próximo inventário.
               </p>
             )}
-            <p className="text-muted-foreground text-xs">O estoque é baixado ao registrar.</p>
+            {produtoEscolhido?.controla_estoque && (
+              <p className="text-muted-foreground text-xs">O estoque é baixado ao registrar.</p>
+            )}
           </div>
         )}
         <div className="grid grid-cols-[1fr_auto] gap-3">
@@ -346,6 +364,29 @@ function LancamentoForm({
               <p className="bg-secondary/60 rounded-md px-3 py-2 text-sm">
                 Taxa {numeroParaCampo(taxa)}% · entra{" "}
                 <strong>{formatMoeda(valorLiquido(valor, taxa))}</strong>
+              </p>
+            )}
+            {valorComRepasse > 0 && !repassando && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full py-2 whitespace-normal"
+                onClick={() => setValorTexto(numeroParaCampo(valorComRepasse))}
+              >
+                Repassar a taxa para a cliente: cobrar {formatMoeda(valorComRepasse)}
+              </Button>
+            )}
+            {repassando && (
+              <p className="text-sm text-emerald-800">
+                Taxa repassada: a cliente paga {formatMoeda(valorComRepasse)} e o studio recebe{" "}
+                {formatMoeda(base)}.{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => setValorTexto(numeroParaCampo(base))}
+                >
+                  Desfazer
+                </button>
               </p>
             )}
           </div>

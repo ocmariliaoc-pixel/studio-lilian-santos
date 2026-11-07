@@ -5,9 +5,20 @@ export type Produto = {
   preco: number;
   estoque: number;
   ativo: boolean;
+  /** false para cursos, e-book, voucher: não baixa estoque nem entra no inventário. */
+  controla_estoque: boolean;
+  /** Cursos: duração em dias (0,5 = meio período). */
+  duracao_dias: number | null;
 };
 
-export const CATEGORIAS_PRODUTO = ["Brincos", "Acessórios", "Cuidados com a pele", "Outros"];
+/** 0.5 → "meio dia", 1 → "1 dia", 2 → "2 dias", 1.5 → "1,5 dia" */
+export function formatDias(d: number) {
+  if (d === 0.5) return "meio dia";
+  const t = String(d).replace(".", ",");
+  return d === 1 ? "1 dia" : d < 2 ? `${t} dia` : `${t} dias`;
+}
+
+export const CATEGORIAS_PRODUTO = ["Brincos", "Acessórios", "Cuidados com a pele", "Cursos", "Outros"];
 
 export type StatusInventario = {
   ultimoEm: string | null;

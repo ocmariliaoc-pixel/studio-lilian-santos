@@ -15,12 +15,27 @@ export async function salvarProduto(_: AcaoState, formData: FormData): Promise<A
   const preco = parseNumeroBR(String(formData.get("preco") ?? ""));
   const estoque = Number(formData.get("estoque"));
   const ativo = formData.get("ativo") === "on";
+  const controlaEstoque = formData.get("controla_estoque") === "on";
+  const diasTexto = String(formData.get("duracao_dias") ?? "").trim();
+  const duracaoDias = diasTexto ? parseNumeroBR(diasTexto) : null;
 
   if (!nome) return falha("Informe o nome do produto.");
   if (preco == null || preco < 0) return falha("Preço inválido. Exemplo: 29,90");
-  if (!Number.isInteger(estoque) || estoque < 0) return falha("Estoque deve ser um número inteiro.");
+  if (controlaEstoque && (!Number.isInteger(estoque) || estoque < 0))
+    return falha("Estoque deve ser um número inteiro.");
 
-  const dados = { nome, categoria, preco: Math.round(preco * 100) / 100, estoque, ativo };
+  if (duracaoDias != null && (duracaoDias < 0.5 || duracaoDias > 30 || (duracaoDias * 2) % 1 !== 0))
+    return falha("Duração em dias: use números como 0,5, 1, 2 ou 3.");
+
+  const dados = {
+    duracao_dias: controlaEstoque ? null : duracaoDias,
+    nome,
+    categoria,
+    preco: Math.round(preco * 100) / 100,
+    ativo,
+    controla_estoque: controlaEstoque,
+    ...(controlaEstoque ? { estoque } : {}),
+  };
   const supabase = await createClient();
   const { error } = id
     ? await supabase.from("produtos").update(dados).eq("id", id)

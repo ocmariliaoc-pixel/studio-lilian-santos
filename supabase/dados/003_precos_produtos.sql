@@ -22,7 +22,7 @@ from (values
   ('Brinco 49,90',                                      'Brincos',             49.90, 1),
   ('Brinco 59,90',                                      'Brincos',             59.90, 4),
   ('Gel creme antioleosidade — Extratos da Terra',      'Cuidados com a pele', 149.90, 2),
-  ('Fluido finalizador FPS 50 — Extratos da Terra',     'Cuidados com a pele',  99.90, 0), -- quantidade não informada: ajustar no inventário
+  ('Fluido finalizador FPS 50 — Extratos da Terra',     'Cuidados com a pele',  99.90, 2),
   ('Base stick — Extratos da Terra',                    'Cuidados com a pele', 129.90, 3)
 ) as v(nome, categoria, preco, estoque)
 where not exists (select 1 from public.produtos p where lower(p.nome) = lower(v.nome));

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatMoeda } from "@/lib/format";
 import { numeroParaCampo } from "@/lib/configuracoes";
-import { CATEGORIAS_PRODUTO, type Produto } from "@/lib/produtos";
+import { CATEGORIAS_PRODUTO, formatDias, type Produto } from "@/lib/produtos";
 import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { registrarInventario, salvarProduto } from "./actions";
@@ -51,9 +51,10 @@ export function ProdutosTela({
 
   const ativos = produtos.filter((p) => p.ativo);
   const inativos = produtos.filter((p) => !p.ativo);
+  const comEstoque = ativos.filter((p) => p.controla_estoque);
 
   if (modoInventario) {
-    return <Inventario produtos={ativos} onSair={() => setModoInventario(false)} />;
+    return <Inventario produtos={comEstoque} onSair={() => setModoInventario(false)} />;
   }
 
   function abrir(p: Produto | null) {
@@ -61,8 +62,8 @@ export function ProdutosTela({
     setAberto(true);
   }
 
-  const totalUnidades = ativos.reduce((s, p) => s + Math.max(p.estoque, 0), 0);
-  const valorEstoque = ativos.reduce((s, p) => s + Math.max(p.estoque, 0) * p.preco, 0);
+  const totalUnidades = comEstoque.reduce((s, p) => s + Math.max(p.estoque, 0), 0);
+  const valorEstoque = comEstoque.reduce((s, p) => s + Math.max(p.estoque, 0) * p.preco, 0);
 
   return (
     <div className="space-y-6">
@@ -101,7 +102,17 @@ export function ProdutosTela({
                     <span className="block truncate font-medium">{p.nome}</span>
                     <span className="text-muted-foreground text-sm">{formatMoeda(p.preco)}</span>
                   </span>
-                  <EstoqueBadge n={p.estoque} />
+                  {p.controla_estoque ? (
+                    <EstoqueBadge n={p.estoque} />
+                  ) : (
+                    <Badge variant="outline">
+                      {p.duracao_dias
+                        ? formatDias(p.duracao_dias)
+                        : p.categoria === "Cursos"
+                          ? "conforme agenda"
+                          : "sem controle"}
+                    </Badge>
+                  )}
                   {admin && <ChevronRight className="text-muted-foreground size-4 shrink-0" />}
                 </button>
               </li>
@@ -162,6 +173,7 @@ function ProdutoForm({
 }) {
   const [state, action, pending] = useActionState<AcaoState, FormData>(salvarProduto, {});
   const [ativo, setAtivo] = useState(produto?.ativo ?? true);
+  const [controla, setControla] = useState(produto?.controla_estoque ?? true);
 
   useEffect(() => {
     if (state.ok) {
@@ -210,19 +222,52 @@ function ProdutoForm({
             />
           </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="estoque">Estoque</Label>
-          <Input
-            id="estoque"
-            name="estoque"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            defaultValue={Math.max(produto?.estoque ?? 0, 0)}
-            required
-          />
-        </div>
+        {controla && (
+          <div className="space-y-2">
+            <Label htmlFor="estoque">Estoque</Label>
+            <Input
+              id="estoque"
+              name="estoque"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              defaultValue={Math.max(produto?.estoque ?? 0, 0)}
+              required
+            />
+          </div>
+        )}
       </div>
+      <label className="bg-secondary/50 flex items-center justify-between gap-3 rounded-lg p-3">
+        <span>
+          <span className="block text-sm font-medium">Controlar estoque</span>
+          <span className="text-muted-foreground block text-xs">
+            Desligue para cursos, e-book e voucher.
+          </span>
+        </span>
+        <Switch checked={controla} onCheckedChange={setControla} />
+        {controla && <input type="hidden" name="controla_estoque" value="on" />}
+      </label>
+      {!controla && (
+        <div className="space-y-2">
+          <Label htmlFor="duracao_dias">Duração (cursos)</Label>
+          <div className="relative">
+            <Input
+              id="duracao_dias"
+              name="duracao_dias"
+              inputMode="decimal"
+              defaultValue={produto?.duracao_dias ? numeroParaCampo(produto.duracao_dias, 1) : ""}
+              placeholder="Ex.: 2 ou 0,5"
+              className="pr-14"
+            />
+            <span className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm">
+              dias
+            </span>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Use 0,5 para meio período. Na agenda, a turma vai bloquear esses dias.
+          </p>
+        </div>
+      )}
       <label className="bg-secondary/50 flex items-center justify-between gap-3 rounded-lg p-3">
         <span className="text-sm font-medium">Produto ativo (aparece no caixa)</span>
         <Switch checked={ativo} onCheckedChange={setAtivo} />
