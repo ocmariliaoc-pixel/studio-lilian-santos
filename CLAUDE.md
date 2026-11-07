@@ -124,7 +124,13 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - Adicionar/remover serviço num agendamento já marcado recalcula fim e valor e **rechecar conflito** com o próximo horário.
 - Ao marcar "realizado", o lançamento no caixa sai com a descrição dos itens ("Design personalizado + Epilação de buço") e o total.
 
-## 6.3 Cursos e agenda (regra para a Fase 4)
+## 6.3 Pacotes/combos conhecidos (Fase 5)
+
+- **Remoção a laser** (sob demanda): sessão avulsa R$ 200; **combo 3 sessões R$ 500** → pacote com 3 sessões, cada atendimento desconta uma sessão.
+- Reconstrução — Protocolo LS: pacote de 3 sessões (preço a definir).
+- Limpeza de pele: assinatura (formato a definir).
+
+## 6.4 Cursos e agenda (regra para a Fase 4)
 
 - Cursos são produtos **sem estoque** (`produtos.controla_estoque = false`); dependem da **disponibilidade da agenda**.
 - Duração em dias em `produtos.duracao_dias`: design de sobrancelha 2 dias, brow lamination 0,5 dia (meio período), micropigmentação 3 dias (dermaplaning: a definir).
