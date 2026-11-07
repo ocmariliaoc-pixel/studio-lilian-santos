@@ -94,7 +94,7 @@ Construa uma fase por vez (seção 8). Só passe para a próxima quando a anteri
 ## 8. Ordem de construção (uma fase por pedido)
 
 1. **Base:** projeto Next.js + Supabase, login, layout com menu, tema visual, deploy na Vercel. ✅ (Fase 1)
-2. **Configurações e serviços:** cadastro de serviços, horários, taxas.
+2. **Configurações e serviços:** cadastro de serviços, horários, taxas. ✅ (Fase 2)
 3. **Clientes:** lista, cadastro, ficha, anamnese.
 4. **Agenda:** visão dia/semana, criar e editar agendamentos, status, bloqueios, regra de conflito.
 5. **Financeiro:** receitas (inclusive automáticas a partir do atendimento), despesas, pacotes, relatórios do mês.
@@ -121,6 +121,10 @@ Construa uma fase por vez (seção 8). Só passe para a próxima quando a anteri
 - Migrações SQL em `supabase/migrations/` (rodar em ordem no SQL Editor do Supabase ou via `supabase db push`).
 - Perfil da usuária vem da tabela `perfis` (`id` = `auth.users.id`, `papel` = `admin` | `profissional`). Helper `getPerfil()` em `src/lib/auth.ts`.
 - Formatação pt-BR (moeda, data, fuso America/Fortaleza) em `src/lib/format.ts` — sempre usar esses helpers.
-- Componentes shadcn/ui em `src/components/ui/`.
+- Componentes shadcn/ui em `src/components/ui/` (escritos à mão: ui.shadcn.com é bloqueado na rede do ambiente de build). `Dialog` vira painel inferior no celular; `NativeSelect` usa o seletor do sistema.
+- Configurações (só admin): `src/app/(app)/configuracoes/{servicos,horarios,taxas,usuarias}`. Tipos, rótulos e cálculos (valor líquido, `parseNumeroBR`) em `src/lib/configuracoes.ts`.
+- Server actions retornam `AcaoState` (`src/lib/acoes.ts`) e sempre checam `requireAdmin()` além do RLS.
+- RLS padrão: usuárias ativas leem (`is_usuaria_ativa()`), só admin altera (`is_admin()`); sem DELETE (desativar em vez de excluir). Trigger impede ficar sem nenhuma admin ativa.
+- Bloqueios de agenda ficam para a Fase 4 (Agenda).
 - Variáveis de ambiente: ver `.env.example`.
 - Antes de commitar: `npm run lint` e `npm run build`.

@@ -9,6 +9,7 @@ export type Perfil = {
   nome: string;
   email: string;
   papel: Papel;
+  ativo: boolean;
 };
 
 /** Perfil da usuária logada (cacheado por request). Redireciona para /login se não houver sessão. */
@@ -22,7 +23,7 @@ export const getPerfil = cache(async (): Promise<Perfil> => {
 
   const { data } = await supabase
     .from("perfis")
-    .select("id, nome, papel")
+    .select("id, nome, papel, ativo")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -32,9 +33,17 @@ export const getPerfil = cache(async (): Promise<Perfil> => {
     nome: data?.nome ?? user.email?.split("@")[0] ?? "Usuária",
     // Sem perfil cadastrado → menor privilégio.
     papel: (data?.papel as Papel) ?? "profissional",
+    ativo: data?.ativo ?? true,
   };
 });
 
 export function isAdmin(perfil: Perfil) {
   return perfil.papel === "admin";
+}
+
+/** Para páginas e actions exclusivas da administração. */
+export async function requireAdmin() {
+  const perfil = await getPerfil();
+  if (!isAdmin(perfil)) redirect("/");
+  return perfil;
 }
