@@ -57,15 +57,34 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
   };
 
   const supabase = await createClient();
+
+  // Liga (ou cadastra) a cliente pelo nome. Se a tabela ainda não existir, segue só com o nome.
+  let clienteId: string | null = null;
+  if (dados.cliente_nome) {
+    const nomeBusca = dados.cliente_nome.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const achada = await supabase.from("clientes").select("id").ilike("nome", nomeBusca).limit(1).maybeSingle();
+    if (achada.data) clienteId = achada.data.id;
+    else if (!achada.error) {
+      const nova = await supabase
+        .from("clientes")
+        .insert({ nome: dados.cliente_nome, status: "ativa" })
+        .select("id")
+        .single();
+      clienteId = nova.data?.id ?? null;
+    }
+  }
+  const registro = clienteId ? { ...dados, cliente_id: clienteId } : dados;
+
   const { error, count } = id
-    ? await supabase.from("lancamentos").update(dados, { count: "exact" }).eq("id", id)
-    : await supabase.from("lancamentos").insert({ ...dados, criado_por: perfil.id }, { count: "exact" });
+    ? await supabase.from("lancamentos").update(registro, { count: "exact" }).eq("id", id)
+    : await supabase.from("lancamentos").insert({ ...registro, criado_por: perfil.id }, { count: "exact" });
 
   if (error) return falha(mensagemErroBanco(error));
   if (id && count === 0) return falha("Você só pode corrigir lançamentos feitos por você.");
 
   revalidatePath("/financeiro");
   revalidatePath("/produtos");
+  revalidatePath("/clientes");
   return sucesso();
 }
 
