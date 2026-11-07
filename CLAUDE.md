@@ -116,7 +116,15 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - Mostrar sempre bruto, taxas da maquininha e líquido.
 - Importar as vendas da inauguração como primeiros dados reais (Fase 5 ou 7), sem versionar a planilha no Git (dados de clientes).
 
-## 6.2 Cursos e agenda (regra para a Fase 4)
+## 6.2 Vários serviços no mesmo atendimento (regra para a Fase 4)
+
+- Um agendamento pode ter **vários serviços** (ex.: design + buço, design + spa labial). Modelar como itens do agendamento (`agendamento_itens`: serviço, duração, valor), não um serviço só.
+- **Slot = soma das durações dos serviços + 1 intervalo entre atendimentos** (o intervalo entra uma vez, no fim). Ex.: design 30 + buço 5 + intervalo 10 = 45 min ocupados.
+- **Valor = soma dos preços dos serviços**, editável por item (desconto, cortesia: item com valor 0 = brinde, ex.: "ganhou buço").
+- Adicionar/remover serviço num agendamento já marcado recalcula fim e valor e **rechecar conflito** com o próximo horário.
+- Ao marcar "realizado", o lançamento no caixa sai com a descrição dos itens ("Design personalizado + Epilação de buço") e o total.
+
+## 6.3 Cursos e agenda (regra para a Fase 4)
 
 - Cursos são produtos **sem estoque** (`produtos.controla_estoque = false`); dependem da **disponibilidade da agenda**.
 - Duração em dias em `produtos.duracao_dias`: design de sobrancelha 2 dias, brow lamination 0,5 dia (meio período), micropigmentação 3 dias (dermaplaning: a definir).
