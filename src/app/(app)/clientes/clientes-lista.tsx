@@ -8,6 +8,7 @@ import { FORMAS_PAGAMENTO } from "@/lib/configuracoes";
 import { dataBR, nomeForma } from "@/lib/financeiro";
 import { diasDesde, faixaGasto, type ClienteResumo } from "@/lib/clientes";
 import { cn } from "@/lib/utils";
+import { ContatoCampos } from "./contato-campos";
 
 type Ordem = "visita" | "gasto";
 
@@ -36,7 +37,9 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
   const lista = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     return clientes
-      .filter((c) => !termo || c.nome.toLocaleLowerCase("pt-BR").includes(termo) || c.whatsapp?.includes(termo))
+      .filter((c) => !termo || c.nome.toLocaleLowerCase("pt-BR").includes(termo) ||
+          (termo.replace(/\D/g, "") !== "" && c.whatsapp?.includes(termo.replace(/\D/g, ""))) ||
+          c.instagram?.includes(termo.replace(/^@/, "")))
       .sort((a, b) =>
         ordem === "gasto"
           ? b.total_gasto - a.total_gasto || a.nome.localeCompare(b.nome, "pt-BR")
@@ -63,7 +66,7 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
             type="search"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome ou telefone"
+            placeholder="Buscar por nome, telefone ou @"
             className="pl-9"
           />
         </div>
@@ -174,6 +177,8 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
                     </dd>
                   </div>
                 </dl>
+
+                <ContatoCampos id={c.id} nome={c.nome} whatsapp={c.whatsapp} instagram={c.instagram} />
               </li>
             );
           })}

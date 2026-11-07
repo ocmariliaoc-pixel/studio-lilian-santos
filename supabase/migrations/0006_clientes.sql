@@ -8,7 +8,8 @@ exception when duplicate_object then null; end $$;
 create table if not exists public.clientes (
   id              uuid primary key default gen_random_uuid(),
   nome            text not null check (length(trim(nome)) > 0),
-  whatsapp        text,
+  whatsapp        text,            -- só dígitos, com DDD (ex.: 85999998888)
+  instagram       text,            -- usuário sem @
   email           text,
   data_nascimento date,
   origem          text,            -- Instagram, Indicação, Google, Passou na frente, Outro
@@ -20,6 +21,8 @@ create table if not exists public.clientes (
   criado_em       timestamptz not null default now(),
   atualizado_em   timestamptz not null default now()
 );
+
+alter table public.clientes add column if not exists instagram text;
 
 create unique index if not exists clientes_nome_unico on public.clientes (lower(trim(nome)));
 
@@ -60,10 +63,11 @@ update public.lancamentos l set cliente_id = c.id
 
 -- Resumo por cliente: visitas, última visita, último pagamento, total gasto.
 -- security_invoker: a view respeita o RLS de quem consulta.
-create or replace view public.clientes_resumo
+drop view if exists public.clientes_resumo;
+create view public.clientes_resumo
 with (security_invoker = true) as
 select
-  c.id, c.nome, c.whatsapp, c.status, c.criado_em,
+  c.id, c.nome, c.whatsapp, c.instagram, c.status, c.criado_em,
   u.data          as ultima_visita,
   u.servicos      as servicos_ultima_visita,
   p.data          as ultimo_pagamento_em,
