@@ -188,7 +188,7 @@ function LancamentoForm({
       <input type="hidden" name="produto_id" value={vendeProduto ? produtoId : ""} />
       <input type="hidden" name="quantidade" value={vendeProduto ? quantidade : 1} />
 
-      <fieldset disabled={bloqueado} className="space-y-4">
+      <fieldset disabled={bloqueado} className="min-w-0 space-y-4">
         <div className="grid grid-cols-2 gap-2">
           {(["entrada", "saida"] as const).map((t) => (
             <button

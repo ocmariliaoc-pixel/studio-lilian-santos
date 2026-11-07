@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getPerfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { acharOuCriarCliente } from "@/lib/clientes-server";
 import { FORMAS_PAGAMENTO, parseNumeroBR, type FormaPagamento } from "@/lib/configuracoes";
 import { isDataISO } from "@/lib/financeiro";
 import { falha, mensagemErroBanco, sucesso, type AcaoState } from "@/lib/acoes";
@@ -59,20 +60,7 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
   const supabase = await createClient();
 
   // Liga (ou cadastra) a cliente pelo nome. Se a tabela ainda não existir, segue só com o nome.
-  let clienteId: string | null = null;
-  if (dados.cliente_nome) {
-    const nomeBusca = dados.cliente_nome.replace(/[\\%_]/g, (c) => `\\${c}`);
-    const achada = await supabase.from("clientes").select("id").ilike("nome", nomeBusca).limit(1).maybeSingle();
-    if (achada.data) clienteId = achada.data.id;
-    else if (!achada.error) {
-      const nova = await supabase
-        .from("clientes")
-        .insert({ nome: dados.cliente_nome, status: "ativa" })
-        .select("id")
-        .single();
-      clienteId = nova.data?.id ?? null;
-    }
-  }
+  const clienteId = dados.cliente_nome ? await acharOuCriarCliente(supabase, dados.cliente_nome) : null;
   const registro = clienteId ? { ...dados, cliente_id: clienteId } : dados;
 
   const { error, count } = id
