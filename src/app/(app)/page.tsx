@@ -2,12 +2,14 @@ import { CalendarDays, Cake, Target, TrendingUp, UserRoundCheck, Users, Wallet }
 import Link from "next/link";
 import { getPerfil, isAdmin } from "@/lib/auth";
 import { formatDataExtenso, saudacao } from "@/lib/format";
+import { lerStatusInventario } from "@/lib/produtos-server";
+import { AlertaInventario } from "@/components/alerta-inventario";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Atalho = { href: string; titulo: string; descricao: string; icon: typeof Wallet };
 
 const ATALHOS_ADMIN: Atalho[] = [
-  { href: "/financeiro", titulo: "Faturamento do mês", descricao: "Receita x meta e projeção", icon: Wallet },
+  { href: "/financeiro", titulo: "Financeiro", descricao: "Entradas, saídas e saldo do mês", icon: Wallet },
   { href: "/metas", titulo: "Metas", descricao: "Meta x realizado por indicador", icon: Target },
   { href: "/agenda", titulo: "Agenda de hoje", descricao: "Horários e confirmações", icon: CalendarDays },
   { href: "/clientes", titulo: "Clientes", descricao: "Retornos e aniversariantes", icon: Users },
@@ -17,7 +19,7 @@ const ATALHOS_PROFISSIONAL: Atalho[] = [
   { href: "/agenda", titulo: "Atendimentos de hoje", descricao: "Status e WhatsApp da cliente", icon: CalendarDays },
   { href: "/clientes", titulo: "Fichas das clientes", descricao: "Dados, anamnese e histórico", icon: UserRoundCheck },
   { href: "/clientes", titulo: "Aniversariantes", descricao: "Clientes que fazem aniversário na semana", icon: Cake },
-  { href: "/financeiro", titulo: "Faturamento", descricao: "Acompanhar o mês (leitura)", icon: TrendingUp },
+  { href: "/financeiro", titulo: "Caixa", descricao: "Lançar entradas e saídas", icon: TrendingUp },
 ];
 
 export default async function InicioPage() {
@@ -25,6 +27,7 @@ export default async function InicioPage() {
   const admin = isAdmin(perfil);
   const atalhos = admin ? ATALHOS_ADMIN : ATALHOS_PROFISSIONAL;
   const primeiroNome = perfil.nome.split(" ")[0];
+  const inventario = await lerStatusInventario();
 
   return (
     <div className="space-y-8">
@@ -39,6 +42,8 @@ export default async function InicioPage() {
             : "Aqui ficam seus atendimentos do dia e as fichas das clientes."}
         </p>
       </div>
+
+      <AlertaInventario status={inventario} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {atalhos.map(({ href, titulo, descricao, icon: Icon }) => (

@@ -25,6 +25,11 @@ export default async function LoginPage({
           Esse link expirou ou já foi usado. Peça um novo em &ldquo;Esqueci minha senha&rdquo;.
         </p>
       )}
+      {erro === "inativa" && (
+        <p role="alert" className="bg-destructive/10 text-destructive mb-5 rounded-md p-3 text-sm">
+          Esta conta foi desativada. Fale com a administração do studio.
+        </p>
+      )}
       <LoginForm next={next} />
       <div className="mt-5 text-center">
         <Link

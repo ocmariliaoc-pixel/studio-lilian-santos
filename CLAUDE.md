@@ -94,13 +94,34 @@ Construa uma fase por vez (seção 8). Só passe para a próxima quando a anteri
 ## 8. Ordem de construção (uma fase por pedido)
 
 1. **Base:** projeto Next.js + Supabase, login, layout com menu, tema visual, deploy na Vercel. ✅ (Fase 1)
-2. **Configurações e serviços:** cadastro de serviços, horários, taxas.
+2. **Configurações e serviços:** cadastro de serviços, horários, taxas. ✅ (Fase 2)
 3. **Clientes:** lista, cadastro, ficha, anamnese.
 4. **Agenda:** visão dia/semana, criar e editar agendamentos, status, bloqueios, regra de conflito.
 5. **Financeiro:** receitas (inclusive automáticas a partir do atendimento), despesas, pacotes, relatórios do mês.
 6. **Metas e painel inicial:** metas mensais, meta x realizado, painel do dia, aniversariantes, retornos.
 7. **Ajustes finais:** testes com dados reais, importação das clientes atuais (planilha CSV), revisão no celular.
 8. **Futuro:** página pública de agendamento para clientes.
+
+## 6.1 Requisitos levantados com dados reais (inauguração, nov/2026)
+
+A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precisa cobrir:
+
+- **Entradas por dia, mês e ano**: é a visão principal que Ana Jessica e Lilian querem ver.
+- **Um atendimento/venda com vários itens**: "Design + Buço" = R$ 55 + R$ 15. Receita e agendamento devem aceitar mais de um serviço (itens), não um só.
+- **Venda de produtos** (ex.: brinco R$ 29,90), sozinha ou junto com serviço. Precisa de cadastro simples de produtos (nome, preço, ativo). Cursos, e-book e voucher também entram como produto/venda avulsa.
+- **Brinde/cortesia**: atendimento com valor R$ 0 (ex.: spa labial na inauguração). Conta como atendimento e cliente atendida, mas não como faturamento; mostrar total de brindes à parte.
+- **Preço cobrado ≠ preço da tabela**: o valor do item é editável (ex.: nanofios cobrado R$ 599, tabela R$ 450).
+- **Crédito parcelado** com nº de parcelas (ex.: 3x) → taxa da Ton por parcela; "crédito" sem parcelas = à vista.
+- **Observação livre** na venda (ex.: "troco de R$ 15 feito por Pix").
+- Mostrar sempre bruto, taxas da maquininha e líquido.
+- Importar as vendas da inauguração como primeiros dados reais (Fase 5 ou 7), sem versionar a planilha no Git (dados de clientes).
+
+## 6.2 Cursos e agenda (regra para a Fase 4)
+
+- Cursos são produtos **sem estoque** (`produtos.controla_estoque = false`); dependem da **disponibilidade da agenda**.
+- Duração em dias em `produtos.duracao_dias`: design de sobrancelha 2 dias, brow lamination 0,5 dia (meio período), micropigmentação 3 dias (dermaplaning: a definir).
+- **Na Agenda, marcar uma turma de curso ocupa a agenda da Lilian**: dias inteiros (horário de funcionamento do dia) ou meio período (manhã ou tarde) quando 0,5. Esses horários não são oferecidos para atendimentos — tratar como bloqueio gerado pela turma, respeitando dias fechados (turma de 2 dias que começa sábado continua no próximo dia aberto).
+- Preço do curso é à vista; no cartão a cliente paga a taxa da maquininha (o caixa tem o botão "Repassar a taxa": valor = preço ÷ (1 − taxa)).
 
 ## 9. Informações a preencher pela Lilian
 
@@ -121,6 +142,15 @@ Construa uma fase por vez (seção 8). Só passe para a próxima quando a anteri
 - Migrações SQL em `supabase/migrations/` (rodar em ordem no SQL Editor do Supabase ou via `supabase db push`).
 - Perfil da usuária vem da tabela `perfis` (`id` = `auth.users.id`, `papel` = `admin` | `profissional`). Helper `getPerfil()` em `src/lib/auth.ts`.
 - Formatação pt-BR (moeda, data, fuso America/Fortaleza) em `src/lib/format.ts` — sempre usar esses helpers.
-- Componentes shadcn/ui em `src/components/ui/`.
+- Componentes shadcn/ui em `src/components/ui/` (escritos à mão: ui.shadcn.com é bloqueado na rede do ambiente de build). `Dialog` vira painel inferior no celular; `NativeSelect` usa o seletor do sistema.
+- Configurações (só admin): `src/app/(app)/configuracoes/{servicos,horarios,taxas,usuarias}`. Tipos, rótulos e cálculos (valor líquido, `parseNumeroBR`) em `src/lib/configuracoes.ts`.
+- Server actions retornam `AcaoState` (`src/lib/acoes.ts`) e sempre checam `requireAdmin()` além do RLS.
+- RLS padrão: usuárias ativas leem (`is_usuaria_ativa()`), só admin altera (`is_admin()`); sem DELETE (desativar em vez de excluir). Trigger impede ficar sem nenhuma admin ativa.
+- Bloqueios de agenda ficam para a Fase 4 (Agenda).
+- **Caixa (Fase 5 adiantada, pedido da Marilia):** tabela única `lancamentos` (entrada/saída) substitui o Google Forms "LS | Controle Financeiro" e é a base de receitas e despesas da Fase 5 (que vai acrescentar itens, vínculo com cliente/agendamento e pacotes — evoluir esta tabela, não criar outra). A taxa da maquininha é copiada por trigger de `taxas_pagamento`; `valor_liquido` é coluna gerada. Valor 0 = brinde. Cancelar em vez de excluir.
+- **Exceção de permissão:** a profissional (Lilian) LANÇA no caixa e corrige/cancela o que ela mesma lançou; admin corrige tudo. O resto do financeiro e as metas seguem só leitura para ela.
+- **Produtos e estoque** (`/produtos`, todas veem; só admin cadastra/edita preço): venda no caixa com categoria "Produto" aponta `produto_id` + `quantidade` e um trigger baixa o estoque (corrigir/cancelar devolve). Estoque pode ficar negativo — o inventário corrige.
+- **Inventário quinzenal:** `registrar_inventario(jsonb)` (security definer, qualquer usuária ativa) grava a contagem em `inventarios` e ajusta o estoque. Alerta no Início e em Produtos quando passam `configuracoes.inventario_intervalo_dias` (15) desde o último. Funções de servidor em `src/lib/produtos-server.ts` (separadas de `src/lib/produtos.ts`, que é usado por componentes de cliente).
+- Exportação Excel: `src/app/(app)/financeiro/exportar/route.ts` (exceljs), abas Lançamentos e Resumo.
 - Variáveis de ambiente: ver `.env.example`.
 - Antes de commitar: `npm run lint` e `npm run build`.

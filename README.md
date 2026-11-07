@@ -8,17 +8,17 @@ O briefing completo e a ordem das fases estão em [`CLAUDE.md`](./CLAUDE.md).
 ## Status
 
 - [x] **Fase 1 — Base:** projeto, login, layout com menu, tema visual, preparo para deploy
-- [ ] Fase 2 — Configurações e serviços
+- [x] **Fase 2 — Configurações e serviços:** serviços, horários, regras, taxas da maquininha, usuárias
 - [ ] Fase 3 — Clientes
 - [ ] Fase 4 — Agenda
-- [ ] Fase 5 — Financeiro
+- [ ] Fase 5 — Financeiro (adiantado: caixa com lançamentos, resumo dia/mês/ano e exportação Excel)
 - [ ] Fase 6 — Metas e painel inicial
 - [ ] Fase 7 — Ajustes finais
 
 ## 1. Criar o projeto no Supabase
 
 1. Crie um projeto em [supabase.com](https://supabase.com) (região: **South America (São Paulo)**).
-2. Em **SQL Editor**, rode o conteúdo de `supabase/migrations/0001_base_perfis.sql`.
+2. Em **SQL Editor**, rode **em ordem** cada arquivo de `supabase/migrations/` (`0001_...`, `0002_...`). Todos podem ser rodados de novo sem duplicar nada.
 3. Em **Authentication → Sign In / Providers**, deixe **Email** ativo e **desligue "Allow new users to sign up"** (sem cadastro público).
 4. Em **Authentication → Users → Add user → Create new user**, crie as três contas (marque *Auto Confirm User*):
    - Ana Jessica, Lilian e Marilia.

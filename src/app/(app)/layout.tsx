@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getPerfil } from "@/lib/auth";
 import { Logo } from "@/components/logo";
 import { BottomNav, SidebarNav } from "@/components/app-nav";
@@ -6,6 +7,7 @@ import { UserMenu } from "@/components/user-menu";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const perfil = await getPerfil();
+  if (!perfil.ativo) redirect("/auth/inativa");
 
   return (
     <div className="min-h-dvh md:flex">
