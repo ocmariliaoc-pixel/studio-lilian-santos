@@ -102,6 +102,20 @@ Construa uma fase por vez (seção 8). Só passe para a próxima quando a anteri
 7. **Ajustes finais:** testes com dados reais, importação das clientes atuais (planilha CSV), revisão no celular.
 8. **Futuro:** página pública de agendamento para clientes.
 
+## 6.1 Requisitos levantados com dados reais (inauguração, nov/2026)
+
+A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precisa cobrir:
+
+- **Entradas por dia, mês e ano**: é a visão principal que Ana Jessica e Lilian querem ver.
+- **Um atendimento/venda com vários itens**: "Design + Buço" = R$ 55 + R$ 15. Receita e agendamento devem aceitar mais de um serviço (itens), não um só.
+- **Venda de produtos** (ex.: brinco R$ 29,90), sozinha ou junto com serviço. Precisa de cadastro simples de produtos (nome, preço, ativo). Cursos, e-book e voucher também entram como produto/venda avulsa.
+- **Brinde/cortesia**: atendimento com valor R$ 0 (ex.: spa labial na inauguração). Conta como atendimento e cliente atendida, mas não como faturamento; mostrar total de brindes à parte.
+- **Preço cobrado ≠ preço da tabela**: o valor do item é editável (ex.: nanofios cobrado R$ 599, tabela R$ 450).
+- **Crédito parcelado** com nº de parcelas (ex.: 3x) → taxa da Ton por parcela; "crédito" sem parcelas = à vista.
+- **Observação livre** na venda (ex.: "troco de R$ 15 feito por Pix").
+- Mostrar sempre bruto, taxas da maquininha e líquido.
+- Importar as vendas da inauguração como primeiros dados reais (Fase 5 ou 7), sem versionar a planilha no Git (dados de clientes).
+
 ## 9. Informações a preencher pela Lilian
 
 - [ ] Lista de serviços: nome, preço, duração, intervalo de retorno
