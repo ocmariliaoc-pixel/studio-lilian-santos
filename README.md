@@ -52,7 +52,15 @@ Abra http://localhost:3000 e entre com uma das contas.
 1. Em [vercel.com/new](https://vercel.com/new), importe o repositório do GitHub.
 2. Em **Environment Variables**, adicione `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 3. Clique em **Deploy**. A cada push na branch principal a Vercel publica automaticamente.
-4. No Supabase, em **Authentication → URL Configuration**, coloque a URL da Vercel em **Site URL**.
+4. No Supabase, em **Authentication → URL Configuration**:
+   - **Site URL:** a URL da Vercel (ex.: `https://studio-lilian-santos.vercel.app`)
+   - **Redirect URLs:** adicione `https://studio-lilian-santos.vercel.app/**`
+
+## Senhas
+
+- Na tela de login, **Esqueci minha senha** envia um link por e-mail; o link abre a tela **Nova senha**.
+- A administração também pode enviar o link pelo Supabase (**Authentication → Users → ⋯ → Send password recovery**).
+- O link deve ser aberto no mesmo aparelho e navegador em que foi pedido, e vale uma única vez.
 
 ## Perfis de acesso
 

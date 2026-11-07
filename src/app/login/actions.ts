@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { caminhoSeguro } from "@/lib/redirect";
 
 export type LoginState = { erro?: string };
 
@@ -19,6 +20,5 @@ export async function entrar(_: LoginState, formData: FormData): Promise<LoginSt
     return { erro: "E-mail ou senha incorretos." };
   }
 
-  // Só aceita caminhos internos para evitar redirecionamento aberto.
-  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
+  redirect(caminhoSeguro(next));
 }
