@@ -20,7 +20,7 @@ import { formatDuracao, numeroParaCampo, type Servico } from "@/lib/configuracoe
 import type { AcaoState } from "@/lib/acoes";
 import { salvarServico } from "./actions";
 
-const DURACOES = [15, 20, 30, 40, 45, 50, 60, 75, 90, 105, 120, 150, 180, 210, 240];
+const DURACOES = [5, 10, 15, 20, 30, 40, 45, 50, 60, 75, 90, 105, 120, 150, 180, 210, 240];
 
 export function ServicoDialog({
   open,

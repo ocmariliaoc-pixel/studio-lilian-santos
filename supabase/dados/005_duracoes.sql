@@ -12,10 +12,11 @@ from (values
   ('Neutralização labial',            90),  -- idem
   ('Limpeza de pele',                 90),
   ('Dermaplaning',                    90),
-  ('Spa labial',                      15)
+  ('Spa labial',                       5),
+  ('Epilação de buço',                 5)
 ) as v(nome, minutos)
 where lower(s.nome) = lower(v.nome);
 
 -- Ainda estimados (não informados): coloração 45, brow lamination 60, lash lifting 60,
--- buço 15, protocolo LS 60, microagulhamento 90.
+-- protocolo LS 60, microagulhamento 90.
 select categoria, nome, duracao_min from public.servicos where ativo order by categoria, nome;
