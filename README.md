@@ -11,7 +11,7 @@ O briefing completo e a ordem das fases estão em [`CLAUDE.md`](./CLAUDE.md).
 - [x] **Fase 2 — Configurações e serviços:** serviços, horários, regras, taxas da maquininha, usuárias
 - [ ] Fase 3 — Clientes
 - [ ] Fase 4 — Agenda
-- [ ] Fase 5 — Financeiro
+- [ ] Fase 5 — Financeiro (adiantado: caixa com lançamentos, resumo dia/mês/ano e exportação Excel)
 - [ ] Fase 6 — Metas e painel inicial
 - [ ] Fase 7 — Ajustes finais
 

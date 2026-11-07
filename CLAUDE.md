@@ -140,5 +140,8 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - Server actions retornam `AcaoState` (`src/lib/acoes.ts`) e sempre checam `requireAdmin()` além do RLS.
 - RLS padrão: usuárias ativas leem (`is_usuaria_ativa()`), só admin altera (`is_admin()`); sem DELETE (desativar em vez de excluir). Trigger impede ficar sem nenhuma admin ativa.
 - Bloqueios de agenda ficam para a Fase 4 (Agenda).
+- **Caixa (Fase 5 adiantada, pedido da Marilia):** tabela única `lancamentos` (entrada/saída) substitui o Google Forms "LS | Controle Financeiro" e é a base de receitas e despesas da Fase 5 (que vai acrescentar itens, vínculo com cliente/agendamento e pacotes — evoluir esta tabela, não criar outra). A taxa da maquininha é copiada por trigger de `taxas_pagamento`; `valor_liquido` é coluna gerada. Valor 0 = brinde. Cancelar em vez de excluir.
+- **Exceção de permissão:** a profissional (Lilian) LANÇA no caixa e corrige/cancela o que ela mesma lançou; admin corrige tudo. O resto do financeiro e as metas seguem só leitura para ela.
+- Exportação Excel: `src/app/(app)/financeiro/exportar/route.ts` (exceljs), abas Lançamentos e Resumo.
 - Variáveis de ambiente: ver `.env.example`.
 - Antes de commitar: `npm run lint` e `npm run build`.
