@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getPerfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { acharOuCriarCliente } from "@/lib/clientes-server";
 import { FORMAS_PAGAMENTO, parseNumeroBR, type FormaPagamento } from "@/lib/configuracoes";
 import { isDataISO } from "@/lib/financeiro";
 import { falha, mensagemErroBanco, sucesso, type AcaoState } from "@/lib/acoes";
@@ -57,15 +58,21 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
   };
 
   const supabase = await createClient();
+
+  // Liga (ou cadastra) a cliente pelo nome. Se a tabela ainda não existir, segue só com o nome.
+  const clienteId = dados.cliente_nome ? await acharOuCriarCliente(supabase, dados.cliente_nome) : null;
+  const registro = clienteId ? { ...dados, cliente_id: clienteId } : dados;
+
   const { error, count } = id
-    ? await supabase.from("lancamentos").update(dados, { count: "exact" }).eq("id", id)
-    : await supabase.from("lancamentos").insert({ ...dados, criado_por: perfil.id }, { count: "exact" });
+    ? await supabase.from("lancamentos").update(registro, { count: "exact" }).eq("id", id)
+    : await supabase.from("lancamentos").insert({ ...registro, criado_por: perfil.id }, { count: "exact" });
 
   if (error) return falha(mensagemErroBanco(error));
   if (id && count === 0) return falha("Você só pode corrigir lançamentos feitos por você.");
 
   revalidatePath("/financeiro");
   revalidatePath("/produtos");
+  revalidatePath("/clientes");
   return sucesso();
 }
 

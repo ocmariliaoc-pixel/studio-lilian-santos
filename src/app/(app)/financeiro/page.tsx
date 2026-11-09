@@ -42,7 +42,7 @@ export default async function FinanceiroPage({
   const periodo = calcularPeriodo(tipo, ref);
 
   const supabase = await createClient();
-  const [lanc, taxas, servicos, produtos] = await Promise.all([
+  const [lanc, taxas, servicos, produtos, clientes] = await Promise.all([
     supabase
       .from("lancamentos")
       .select("*, autora:perfis!lancamentos_criado_por_fkey(nome)")
@@ -57,6 +57,7 @@ export default async function FinanceiroPage({
       .select("id, nome, categoria, preco, estoque, controla_estoque")
       .eq("ativo", true)
       .order("nome"),
+    supabase.from("clientes").select("nome").order("nome"),
   ]);
 
   if (lanc.error || taxas.error) {
@@ -231,6 +232,7 @@ export default async function FinanceiroPage({
             taxa_percentual: Number(t.taxa_percentual),
           })) as TaxaPagamento[],
           sugestoes: (servicos.data ?? []).map((s) => s.nome),
+          clientes: (clientes.data ?? []).map((c) => c.nome),
           // Sem a migração 0004 a consulta falha e a venda de produto fica indisponível
           produtos: (produtos.data ?? []).map((p) => ({
             ...p,

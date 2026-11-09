@@ -47,6 +47,7 @@ export type DadosFormulario = {
   taxas: TaxaPagamento[];
   sugestoes: string[];
   produtos: ProdutoCaixa[];
+  clientes: string[];
   hoje: string;
 };
 
@@ -187,7 +188,7 @@ function LancamentoForm({
       <input type="hidden" name="produto_id" value={vendeProduto ? produtoId : ""} />
       <input type="hidden" name="quantidade" value={vendeProduto ? quantidade : 1} />
 
-      <fieldset disabled={bloqueado} className="space-y-4">
+      <fieldset disabled={bloqueado} className="min-w-0 space-y-4">
         <div className="grid grid-cols-2 gap-2">
           {(["entrada", "saida"] as const).map((t) => (
             <button
@@ -324,8 +325,17 @@ function LancamentoForm({
               name="cliente_nome"
               defaultValue={lancamento?.cliente_nome ?? ""}
               placeholder="Nome da cliente (opcional)"
+              list="lista-clientes"
               autoComplete="off"
             />
+            <datalist id="lista-clientes">
+              {dados.clientes.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+            <p className="text-muted-foreground text-xs">
+              Use o mesmo nome de sempre: o lançamento vai para o histórico dela em Clientes.
+            </p>
           </div>
         )}
 

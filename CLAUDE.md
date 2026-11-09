@@ -116,7 +116,21 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - Mostrar sempre bruto, taxas da maquininha e líquido.
 - Importar as vendas da inauguração como primeiros dados reais (Fase 5 ou 7), sem versionar a planilha no Git (dados de clientes).
 
-## 6.2 Cursos e agenda (regra para a Fase 4)
+## 6.2 Vários serviços no mesmo atendimento (regra para a Fase 4)
+
+- Um agendamento pode ter **vários serviços** (ex.: design + buço, design + spa labial). Modelar como itens do agendamento (`agendamento_itens`: serviço, duração, valor), não um serviço só.
+- **Slot = soma das durações dos serviços + 1 intervalo entre atendimentos** (o intervalo entra uma vez, no fim). Ex.: design 30 + buço 5 + intervalo 10 = 45 min ocupados.
+- **Valor = soma dos preços dos serviços**, editável por item (desconto, cortesia: item com valor 0 = brinde, ex.: "ganhou buço").
+- Adicionar/remover serviço num agendamento já marcado recalcula fim e valor e **rechecar conflito** com o próximo horário.
+- Ao marcar "realizado", o lançamento no caixa sai com a descrição dos itens ("Design personalizado + Epilação de buço") e o total.
+
+## 6.3 Pacotes/combos conhecidos (Fase 5)
+
+- **Remoção a laser** (sob demanda): sessão avulsa R$ 200; **combo 3 sessões R$ 500** → pacote com 3 sessões, cada atendimento desconta uma sessão.
+- Reconstrução — Protocolo LS: pacote de 3 sessões (preço a definir).
+- Limpeza de pele: assinatura (formato a definir).
+
+## 6.4 Cursos e agenda (regra para a Fase 4)
 
 - Cursos são produtos **sem estoque** (`produtos.controla_estoque = false`); dependem da **disponibilidade da agenda**.
 - Duração em dias em `produtos.duracao_dias`: design de sobrancelha 2 dias, brow lamination 0,5 dia (meio período), micropigmentação 3 dias (dermaplaning: a definir).
@@ -151,6 +165,8 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - **Exceção de permissão:** a profissional (Lilian) LANÇA no caixa e corrige/cancela o que ela mesma lançou; admin corrige tudo. O resto do financeiro e as metas seguem só leitura para ela.
 - **Produtos e estoque** (`/produtos`, todas veem; só admin cadastra/edita preço): venda no caixa com categoria "Produto" aponta `produto_id` + `quantidade` e um trigger baixa o estoque (corrigir/cancelar devolve). Estoque pode ficar negativo — o inventário corrige.
 - **Inventário quinzenal:** `registrar_inventario(jsonb)` (security definer, qualquer usuária ativa) grava a contagem em `inventarios` e ajusta o estoque. Alerta no Início e em Produtos quando passam `configuracoes.inventario_intervalo_dias` (15) desde o último. Funções de servidor em `src/lib/produtos-server.ts` (separadas de `src/lib/produtos.ts`, que é usado por componentes de cliente).
+- **Clientes v0** (`/clientes`): view `clientes_resumo` (security_invoker) com última visita, último pagamento, visitas e total gasto a partir de `lancamentos.cliente_id`; telefone e Instagram editáveis na lista (salvam ao sair do campo). Caixa e agenda ligam/cadastram a cliente pelo nome (`acharOuCriarCliente` em `src/lib/clientes-server.ts`).
+- **Agenda v0** (`/agenda`): `agendamentos` + `agendamento_itens`; `salvar_agendamento()` calcula fim e `fim_ocupado` (= fim + intervalo) e a constraint `agendamentos_sem_conflito` (exclude gist em tstzrange) impede sobreposição de agendado/confirmado/realizado. Horário de funcionamento/pausa gera aviso com "Marcar mesmo assim". "Realizado" pede a forma de pagamento e cria o lançamento (com `agendamento_id`) uma vez só. Datas/horas sempre em America/Fortaleza (UTC−3 fixo, `src/lib/agenda.ts`). Ainda falta: bloqueios, turmas de curso, pacotes, lembretes no Início.
 - Exportação Excel: `src/app/(app)/financeiro/exportar/route.ts` (exceljs), abas Lançamentos e Resumo.
 - Variáveis de ambiente: ver `.env.example`.
 - Antes de commitar: `npm run lint` e `npm run build`.
