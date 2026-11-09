@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { formatTelefone, linkWhatsApp } from "@/lib/clientes";
 import { cn } from "@/lib/utils";
-import { salvarContato } from "./actions";
+import { salvarCampoCliente } from "./actions";
 
 /** Campo que salva sozinho ao sair dele (ou ao apertar Enter). */
 function CampoContato({
@@ -38,7 +38,7 @@ function CampoContato({
   function salvar() {
     if (texto === exibir(salvo)) return;
     iniciar(async () => {
-      const r = await salvarContato(clienteId, campo, texto);
+      const r = await salvarCampoCliente(clienteId, campo, texto);
       if (r.ok) {
         setSalvo(r.valor ?? null);
         setTexto(exibir(r.valor ?? null));

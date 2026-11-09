@@ -1,11 +1,16 @@
 import type { FormaPagamento } from "@/lib/configuracoes";
 
+export type StatusCliente = "lead" | "ativa" | "inativa" | "perdido";
+
 export type ClienteResumo = {
   id: string;
   nome: string;
   whatsapp: string | null;
   instagram: string | null;
-  status: "lead" | "ativa" | "inativa";
+  data_nascimento: string | null;
+  status: StatusCliente;
+  motivo_perda: string | null;
+  proximo_agendamento: string | null;
   ultima_visita: string | null;
   servicos_ultima_visita: string | null;
   ultimo_pagamento_em: string | null;
@@ -61,4 +66,37 @@ export function normalizarInstagram(texto: string) {
 /** Dias entre uma data AAAA-MM-DD e hoje (AAAA-MM-DD). */
 export function diasDesde(dataISO: string, hojeISO: string) {
   return Math.round((Date.parse(hojeISO) - Date.parse(dataISO)) / 86_400_000);
+}
+
+/** Rótulos do funil. "ativa" = lead ganho (já é cliente). */
+export const STATUS_CLIENTE: Record<StatusCliente, string> = {
+  lead: "Lead",
+  ativa: "Lead ganho",
+  inativa: "Cliente inativa",
+  perdido: "Lead perdido",
+};
+
+export const MOTIVOS_PERDA = [
+  "Achou caro",
+  "Sem horário que servia",
+  "Não respondeu",
+  "Foi em outro lugar",
+  "Desistiu do procedimento",
+  "Contraindicação",
+  "Outro",
+];
+
+/** Dias até o próximo aniversário (0 = hoje). */
+export function diasAteAniversario(nascimento: string, hojeISO: string) {
+  const [, m, d] = nascimento.split("-").map(Number);
+  const [ah, mh, dh] = hojeISO.split("-").map(Number);
+  const hoje = Date.UTC(ah, mh - 1, dh);
+  let prox = Date.UTC(ah, m - 1, d);
+  if (prox < hoje) prox = Date.UTC(ah + 1, m - 1, d);
+  return Math.round((prox - hoje) / 86_400_000);
+}
+
+export function mensagemAniversario(nome: string) {
+  const primeiro = nome.split(" ")[0];
+  return `Parabéns, ${primeiro}! 🎉 Hoje o dia é seu e todo o Studio Lilian Santos deseja um novo ciclo lindo, com muita saúde e autocuidado. Tem um mimo especial te esperando aqui no studio este mês 💛`;
 }
