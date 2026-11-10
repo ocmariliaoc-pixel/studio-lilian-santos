@@ -6,11 +6,34 @@ import { Input } from "@/components/ui/input";
 import { formatMoeda } from "@/lib/format";
 import { FORMAS_PAGAMENTO } from "@/lib/configuracoes";
 import { dataBR, nomeForma } from "@/lib/financeiro";
-import { diasDesde, faixaGasto, type ClienteResumo } from "@/lib/clientes";
+import { diasAteAniversario, diasDesde, faixaGasto, STATUS_CLIENTE, type ClienteResumo } from "@/lib/clientes";
+import { formatData, formatHora } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ContatoCampos } from "./contato-campos";
+import { FunilGrafico } from "./funil-grafico";
+import { StatusCampos } from "./status-campos";
 
 type Ordem = "visita" | "gasto";
+type Filtro = "todos" | "lead" | "ganho" | "perdido" | "aniversario";
+
+const FILTROS: { v: Filtro; rotulo: string; teste: (c: ClienteResumo, hoje: string) => boolean }[] = [
+  { v: "todos", rotulo: "Todas", teste: () => true },
+  { v: "lead", rotulo: "Leads", teste: (c) => c.status === "lead" },
+  { v: "ganho", rotulo: "Ganhos", teste: (c) => c.status === "ativa" || c.status === "inativa" },
+  { v: "perdido", rotulo: "Perdidos", teste: (c) => c.status === "perdido" },
+  {
+    v: "aniversario",
+    rotulo: "Aniversário no mês",
+    teste: (c, hoje) => !!c.data_nascimento && c.data_nascimento.slice(5, 7) === hoje.slice(5, 7),
+  },
+];
+
+const COR_STATUS: Record<ClienteResumo["status"], string> = {
+  lead: "bg-sky-50 text-sky-900 border-sky-200",
+  ativa: "bg-emerald-50 text-emerald-900 border-emerald-200",
+  inativa: "bg-muted text-muted-foreground",
+  perdido: "bg-orange-50 text-orange-900 border-orange-200",
+};
 
 function haQuanto(dias: number) {
   if (dias <= 0) return "hoje";
@@ -27,6 +50,7 @@ const COR_FAIXA: Record<string, string> = {
 export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; hoje: string }) {
   const [busca, setBusca] = useState("");
   const [ordem, setOrdem] = useState<Ordem>("gasto");
+  const [filtro, setFiltro] = useState<Filtro>("todos");
 
   // Ranking de quem mais gastou (só quem pagou algo)
   const posicao = useMemo(() => {
@@ -36,7 +60,9 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
 
   const lista = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
+    const teste = FILTROS.find((f) => f.v === filtro)!.teste;
     return clientes
+      .filter((c) => teste(c, hoje))
       .filter((c) => !termo || c.nome.toLocaleLowerCase("pt-BR").includes(termo) ||
           (termo.replace(/\D/g, "") !== "" && c.whatsapp?.includes(termo.replace(/\D/g, ""))) ||
           c.instagram?.includes(termo.replace(/^@/, "")))
@@ -45,7 +71,7 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
           ? b.total_gasto - a.total_gasto || a.nome.localeCompare(b.nome, "pt-BR")
           : (b.ultima_visita ?? "").localeCompare(a.ultima_visita ?? "") || a.nome.localeCompare(b.nome, "pt-BR")
       );
-  }, [clientes, busca, ordem]);
+  }, [clientes, busca, ordem, filtro, hoje]);
 
   const maior = Math.max(...clientes.map((c) => c.total_gasto), 1);
   const total = clientes.reduce((s, c) => s + c.total_gasto, 0);
@@ -57,6 +83,27 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
         <Numero titulo="Clientes" valor={String(clientes.length)} />
         <Numero titulo="Pagaram" valor={String(pagantes)} />
         <Numero titulo="Total gasto" valor={formatMoeda(total)} />
+      </div>
+
+      <FunilGrafico clientes={clientes} />
+
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        {FILTROS.map((f) => {
+          const n = clientes.filter((c) => f.teste(c, hoje)).length;
+          return (
+            <button
+              key={f.v}
+              type="button"
+              onClick={() => setFiltro(f.v)}
+              className={cn(
+                "h-9 shrink-0 rounded-full border px-3.5 text-sm font-medium whitespace-nowrap",
+                filtro === f.v ? "border-primary bg-primary text-primary-foreground" : "bg-card"
+              )}
+            >
+              {f.rotulo} <span className="opacity-70">{n}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -122,6 +169,12 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
                           {pos}º
                         </span>
                       )}
+                      <span className={cn("rounded border px-1.5 py-0.5 text-[11px] font-medium", COR_STATUS[c.status])}>
+                        {STATUS_CLIENTE[c.status]}
+                      </span>
+                      {c.data_nascimento && diasAteAniversario(c.data_nascimento, hoje) <= 7 && (
+                        <span title="Aniversário chegando" aria-label="Aniversário chegando">🎂</span>
+                      )}
                       {faixa ? (
                         <span
                           title={faixa.rotulo}
@@ -129,11 +182,11 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
                         >
                           {faixa.simbolo}
                         </span>
-                      ) : (
+                      ) : c.visitas > 0 ? (
                         <span className="text-muted-foreground rounded border px-1.5 py-0.5 text-[11px]">
                           só brinde
                         </span>
-                      )}
+                      ) : null}
                     </p>
                     {c.servicos_ultima_visita && (
                       <p className="text-muted-foreground mt-0.5 truncate text-sm">{c.servicos_ultima_visita}</p>
@@ -178,6 +231,13 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
                   </div>
                 </dl>
 
+                {c.proximo_agendamento && (
+                  <p className="mt-2 rounded-md bg-sky-50 px-2.5 py-1.5 text-xs text-sky-900">
+                    Próximo horário: {formatData(c.proximo_agendamento)} às {formatHora(c.proximo_agendamento)}
+                  </p>
+                )}
+
+                <StatusCampos c={c} hoje={hoje} />
                 <ContatoCampos id={c.id} nome={c.nome} whatsapp={c.whatsapp} instagram={c.instagram} />
               </li>
             );

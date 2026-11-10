@@ -32,7 +32,7 @@ export default async function ClientesPage() {
     <>
       <PageHeader
         titulo="Clientes"
-        descricao="Quem já veio ao studio, o que fez e quanto gastou. Ficha completa e anamnese chegam na fase 3."
+        descricao="Leads, clientes e quanto cada uma gastou. Ficha completa e anamnese chegam na fase 3."
       />
       <ClientesLista clientes={clientes} hoje={hojeISO()} />
     </>

@@ -6,7 +6,8 @@ import { BellRing, ChevronLeft, ChevronRight, MessageCircle, Plus } from "lucide
 import { Button } from "@/components/ui/button";
 import { formatMoeda } from "@/lib/format";
 import { hhmm, type HorarioDia, type Servico, type TaxaPagamento } from "@/lib/configuracoes";
-import { dataExtensoISO } from "@/lib/financeiro";
+import { dataExtensoISO, nomeMes } from "@/lib/financeiro";
+import { ultimoDiaDoMes } from "@/lib/metas";
 import { linkWhatsApp } from "@/lib/clientes";
 import {
   dataLocal,
@@ -29,7 +30,7 @@ const DIAS_CURTOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 export type DadosAgenda = {
   hoje: string;
   data: string;
-  visao: "dia" | "semana";
+  visao: "dia" | "semana" | "mes";
   de: string;
   agendamentos: Agendamento[];
   horarios: HorarioDia[];
@@ -57,6 +58,12 @@ export function AgendaTela(props: DadosAgenda) {
 
   const href = (d: string, v = visao) => `/agenda?v=${v}&d=${d}`;
   const passo = visao === "semana" ? 7 : 1;
+  const mesVizinho = (delta: number) => {
+    const [a, m] = data.split("-").map(Number);
+    return new Date(Date.UTC(a, m - 1 + delta, 1)).toISOString().slice(0, 10);
+  };
+  const anterior = visao === "mes" ? mesVizinho(-1) : somarDias(data, -passo);
+  const proximo = visao === "mes" ? mesVizinho(1) : somarDias(data, passo);
 
   // Confirmar 2 dias antes: agendados (não confirmados) de hoje até depois de amanhã
   const paraConfirmar = agendamentos.filter((a) => {
@@ -67,9 +74,12 @@ export function AgendaTela(props: DadosAgenda) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-semibold sm:text-4xl">Agenda</h1>
-        <div className="bg-secondary/60 grid grid-cols-2 gap-1 rounded-xl p-1">
-          {(["dia", "semana"] as const).map((v) => (
+        <div>
+          <h1 className="text-2xl font-semibold sm:text-3xl">Agenda</h1>
+          <div className="bg-gold mt-2 h-0.5 w-8 rounded-full" aria-hidden />
+        </div>
+        <div className="bg-secondary/60 grid grid-cols-3 gap-1 rounded-xl p-1">
+          {(["dia", "semana", "mes"] as const).map((v) => (
             <Link
               key={v}
               href={href(data, v)}
@@ -78,7 +88,7 @@ export function AgendaTela(props: DadosAgenda) {
                 visao === v ? "bg-card shadow-sm" : "text-muted-foreground"
               )}
             >
-              {v === "dia" ? "Dia" : "Semana"}
+              {v === "dia" ? "Dia" : v === "semana" ? "Semana" : "Mês"}
             </Link>
           ))}
         </div>
@@ -86,7 +96,7 @@ export function AgendaTela(props: DadosAgenda) {
 
       <div className="mb-4 flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="icon" aria-label="Anterior">
-          <Link href={href(somarDias(data, -passo))}>
+          <Link href={href(anterior)}>
             <ChevronLeft className="size-5" />
           </Link>
         </Button>
@@ -94,7 +104,9 @@ export function AgendaTela(props: DadosAgenda) {
           <p className="font-serif text-xl font-semibold first-letter:uppercase sm:text-2xl">
             {visao === "dia"
               ? dataExtensoISO(data, false)
-              : `${dataExtensoISO(de, false).split(", ")[1]} a ${dataExtensoISO(somarDias(de, 6), false).split(", ")[1]}`}
+              : visao === "mes"
+                ? `${nomeMes(Number(data.slice(5, 7)))} de ${data.slice(0, 4)}`
+                : `${dataExtensoISO(de, false).split(", ")[1]} a ${dataExtensoISO(somarDias(de, 6), false).split(", ")[1]}`}
           </p>
           {data !== hoje && (
             <Link href={href(hoje)} className="text-primary text-xs font-medium">
@@ -103,7 +115,7 @@ export function AgendaTela(props: DadosAgenda) {
           )}
         </div>
         <Button asChild variant="ghost" size="icon" aria-label="Próximo">
-          <Link href={href(somarDias(data, passo))}>
+          <Link href={href(proximo)}>
             <ChevronRight className="size-5" />
           </Link>
         </Button>
@@ -150,6 +162,8 @@ export function AgendaTela(props: DadosAgenda) {
           onNovo={(hora) => novo(data, hora)}
           onAbrir={abrir}
         />
+      ) : visao === "mes" ? (
+        <VisaoMes mes={`${data.slice(0, 7)}-01`} hoje={hoje} agendamentos={agendamentos} horarios={horarios} />
       ) : (
         <VisaoSemana
           de={de}
@@ -371,6 +385,96 @@ function VisaoSemana({
           </section>
         );
       })}
+    </div>
+  );
+}
+
+function VisaoMes({
+  mes,
+  hoje,
+  agendamentos,
+  horarios,
+}: {
+  mes: string;
+  hoje: string;
+  agendamentos: Agendamento[];
+  horarios: HorarioDia[];
+}) {
+  const fim = ultimoDiaDoMes(mes);
+  // grade começa na segunda-feira
+  const dowInicio = diaDaSemana(mes);
+  const vazios = dowInicio === 0 ? 6 : dowInicio - 1;
+  const dias: string[] = [];
+  for (let d = mes; d <= fim; d = somarDias(d, 1)) dias.push(d);
+
+  const ativos = agendamentos.filter(
+    (a) => a.status !== "cancelado" && a.status !== "faltou" && dataLocal(a.inicio) >= mes && dataLocal(a.inicio) <= fim
+  );
+  const porDia = new Map<string, Agendamento[]>();
+  for (const a of ativos) porDia.set(dataLocal(a.inicio), [...(porDia.get(dataLocal(a.inicio)) ?? []), a]);
+  const total = ativos.reduce((s, a) => s + a.valor_total, 0);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-muted-foreground text-sm">
+        {ativos.length} {ativos.length === 1 ? "atendimento" : "atendimentos"} no mês · {formatMoeda(total)} previsto
+      </p>
+      <div className="bg-card overflow-hidden rounded-xl border">
+        <div className="text-muted-foreground grid grid-cols-7 border-b text-center text-[11px] font-medium uppercase">
+          {["seg", "ter", "qua", "qui", "sex", "sáb", "dom"].map((d) => (
+            <div key={d} className="py-2">
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {Array.from({ length: vazios }, (_, i) => (
+            <div key={`v${i}`} className="bg-muted/40 min-h-16 border-r border-b sm:min-h-24" />
+          ))}
+          {dias.map((d) => {
+            const lista = porDia.get(d) ?? [];
+            const fechado = !horarios.find((h) => h.dia_semana === diaDaSemana(d))?.aberto;
+            const valor = lista.reduce((s, a) => s + a.valor_total, 0);
+            return (
+              <Link
+                key={d}
+                href={`/agenda?v=dia&d=${d}`}
+                className={cn(
+                  "hover:bg-secondary/60 flex min-h-16 flex-col gap-1 border-r border-b p-1.5 transition-colors sm:min-h-24 sm:p-2",
+                  fechado && "bg-muted/50"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-6 items-center justify-center rounded-full text-xs font-medium tabular-nums",
+                    d === hoje ? "bg-primary text-primary-foreground" : fechado ? "text-muted-foreground" : ""
+                  )}
+                >
+                  {Number(d.slice(8))}
+                </span>
+                {lista.length > 0 && (
+                  <>
+                    <span className="bg-accent text-accent-foreground w-fit rounded px-1 text-[11px] font-semibold tabular-nums">
+                      {lista.length}
+                    </span>
+                    <span className="text-muted-foreground hidden truncate text-[11px] tabular-nums sm:block">
+                      {formatMoeda(valor)}
+                    </span>
+                    <ul className="hidden space-y-0.5 lg:block">
+                      {lista.slice(0, 3).map((a) => (
+                        <li key={a.id} className="truncate text-[11px]">
+                          {hhmmDeMinutos(minutosLocal(a.inicio))} {a.cliente_nome}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+      <p className="text-muted-foreground text-xs">Toque num dia para ver os horários e agendar.</p>
     </div>
   );
 }

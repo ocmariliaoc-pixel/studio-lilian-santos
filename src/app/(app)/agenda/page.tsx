@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { hojeISO, isDataISO } from "@/lib/financeiro";
 import { inicioSemana, OFFSET, somarDias, type Agendamento } from "@/lib/agenda";
+import { ultimoDiaDoMes } from "@/lib/metas";
 import type { HorarioDia, Servico, TaxaPagamento } from "@/lib/configuracoes";
 import { ErroMigracao } from "@/components/erro-migracao";
 import { PageHeader } from "@/components/page-header";
@@ -17,10 +18,12 @@ export default async function AgendaPage({
   const sp = await searchParams;
   const hoje = hojeISO();
   const data = isDataISO(sp.d) ? sp.d : hoje;
-  const visao = sp.v === "semana" ? "semana" : "dia";
+  const visao = sp.v === "semana" ? "semana" : sp.v === "mes" ? "mes" : "dia";
 
-  const de = visao === "semana" ? inicioSemana(data) : data;
-  const ate = visao === "semana" ? somarDias(de, 6) : data;
+  const inicioMes = `${data.slice(0, 7)}-01`;
+  const fimMes = ultimoDiaDoMes(inicioMes);
+  const de = visao === "semana" ? inicioSemana(data) : visao === "mes" ? inicioMes : data;
+  const ate = visao === "semana" ? somarDias(de, 6) : visao === "mes" ? fimMes : data;
   // Sempre traz até 2 dias à frente de hoje, para o aviso de confirmação
   const ateBusca = [ate, somarDias(hoje, 2)].sort().at(-1)!;
   const deBusca = [de, hoje].sort()[0];

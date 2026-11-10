@@ -33,7 +33,7 @@ export default async function InicioPage() {
     <div className="space-y-8">
       <div>
         <p className="text-muted-foreground text-sm first-letter:uppercase">{formatDataExtenso(new Date())}</p>
-        <h1 className="mt-1 text-4xl font-semibold">
+        <h1 className="mt-1 text-3xl font-semibold">
           {saudacao()}, {primeiroNome}
         </h1>
         <p className="text-muted-foreground mt-2 text-sm">
