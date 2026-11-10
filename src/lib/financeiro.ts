@@ -95,7 +95,7 @@ export function isDataISO(s: string | undefined | null): s is string {
   return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 }
 
-export type TipoPeriodo = "dia" | "mes" | "ano";
+export type TipoPeriodo = "dia" | "semana" | "mes" | "ano" | "total";
 
 export type Periodo = {
   tipo: TipoPeriodo;
@@ -143,6 +143,22 @@ export function calcularPeriodo(tipo: TipoPeriodo, ref: string): Periodo {
       anterior: iso(a, m, d - 1),
       proximo: iso(a, m, d + 1),
     };
+  }
+  if (tipo === "semana") {
+    const dow = new Date(Date.UTC(a, m - 1, d)).getUTCDay();
+    const seg = iso(a, m, d - (dow === 0 ? 6 : dow - 1));
+    const [sa, sm, sd] = seg.split("-").map(Number);
+    const dom = iso(sa, sm, sd + 6);
+    const curto = (x: string) => `${x.slice(8)}/${x.slice(5, 7)}`;
+    return {
+      tipo, ref, de: seg, ate: dom,
+      titulo: `Semana de ${curto(seg)} a ${curto(dom)}`,
+      anterior: iso(sa, sm, sd - 7),
+      proximo: iso(sa, sm, sd + 7),
+    };
+  }
+  if (tipo === "total") {
+    return { tipo, ref, de: "2000-01-01", ate: "2100-12-31", titulo: "Desde o início", anterior: ref, proximo: ref };
   }
   if (tipo === "mes") {
     return {
@@ -226,4 +242,49 @@ export function resumir(lancamentos: Lancamento[]): Resumo {
 export function nomeForma(forma: FormaPagamento | null, parcelas: number, nomes: Record<string, string>) {
   if (!forma) return "—";
   return forma === "credito_parcelado" ? `Crédito ${parcelas}x` : nomes[forma];
+}
+
+// ---------------------------------------------------------------------------
+// Balanço por mês
+// ---------------------------------------------------------------------------
+export type LinhaBalanco = {
+  mes: string; // AAAA-MM
+  entradas: number;
+  taxas: number;
+  liquido: number;
+  diaADia: number;
+  abertura: number;
+  caucao: number;
+  operacional: number; // líquido − dia a dia
+  saldo: number; // líquido − todas as saídas
+  acumulado: number;
+};
+
+export function balancoMensal(lancamentos: Lancamento[]): LinhaBalanco[] {
+  const meses = new Map<string, Lancamento[]>();
+  for (const l of lancamentos) {
+    if (l.cancelado) continue;
+    const k = l.data.slice(0, 7);
+    meses.set(k, [...(meses.get(k) ?? []), l]);
+  }
+  let acumulado = 0;
+  return [...meses.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([mes, itens]) => {
+      const r = resumir(itens);
+      const diaADia = centavos(r.saidas - r.saidasInvestimento - r.saidasCaucao);
+      acumulado = centavos(acumulado + r.saldo);
+      return {
+        mes,
+        entradas: r.entradasBruto,
+        taxas: r.taxas,
+        liquido: r.entradasLiquido,
+        diaADia,
+        abertura: r.saidasInvestimento,
+        caucao: r.saidasCaucao,
+        operacional: centavos(r.entradasLiquido - diaADia),
+        saldo: r.saldo,
+        acumulado,
+      };
+    });
 }

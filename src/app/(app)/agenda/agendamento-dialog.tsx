@@ -119,7 +119,7 @@ function AcoesStatus({
     iniciar(async () => {
       const r = await marcarRealizado(a.id, valor === 0 ? null : forma || null, parcelas, valor);
       if (r.ok) {
-        toast.success(valor === 0 ? "Realizado (brinde)" : "Realizado e lançado no caixa");
+        toast.success(valor === 0 ? "Concluído (sem cobrança)" : "Concluído e lançado no caixa");
         onFechar();
       } else toast.error(r.erro);
     });
@@ -134,8 +134,8 @@ function AcoesStatus({
         <span>
           {a.status === "realizado"
             ? a.lancado
-              ? `Realizado · ${formatMoeda(a.valor_total)} lançado no caixa`
-              : "Realizado"
+              ? `Concluído · ${formatMoeda(a.valor_total)} lançado no caixa`
+              : "Concluído"
             : STATUS[a.status].rotulo}
         </span>
         {a.status !== "realizado" && (
@@ -164,7 +164,7 @@ function AcoesStatus({
           disabled={pendente}
           onClick={() => setPagando((p) => !p)}
         >
-          <Check /> Realizado
+          <Check /> Concluído
         </Button>
         <Button variant="outline" disabled={pendente} onClick={() => status("faltou", "Marcado como falta")}>
           <UserX /> Faltou

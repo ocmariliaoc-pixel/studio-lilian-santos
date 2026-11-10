@@ -57,7 +57,9 @@ export function LancamentoDialog({
   lancamento,
   podeEditar,
   dados,
+  tipoInicial = "entrada",
 }: {
+  tipoInicial?: TipoLancamento;
   open: boolean;
   onOpenChange: (o: boolean) => void;
   lancamento: Lancamento | null;
@@ -68,7 +70,9 @@ export function LancamentoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{lancamento ? "Lançamento" : "Novo lançamento"}</DialogTitle>
+          <DialogTitle>
+            {lancamento ? "Lançamento" : tipoInicial === "saida" ? "Lançar despesa" : "Registrar venda"}
+          </DialogTitle>
           <DialogDescription>
             {lancamento
               ? lancamento.autora
@@ -78,8 +82,9 @@ export function LancamentoDialog({
           </DialogDescription>
         </DialogHeader>
         <LancamentoForm
-          key={lancamento?.id ?? "novo"}
+          key={lancamento?.id ?? `novo-${tipoInicial}`}
           lancamento={lancamento}
+          tipoInicial={tipoInicial}
           podeEditar={podeEditar}
           dados={dados}
           onFechar={() => onOpenChange(false)}
@@ -90,11 +95,13 @@ export function LancamentoDialog({
 }
 
 function LancamentoForm({
+  tipoInicial,
   lancamento,
   podeEditar,
   dados,
   onFechar,
 }: {
+  tipoInicial: TipoLancamento;
   lancamento: Lancamento | null;
   podeEditar: boolean;
   dados: DadosFormulario;
@@ -102,7 +109,7 @@ function LancamentoForm({
 }) {
   const [state, action, pending] = useActionState<AcaoState, FormData>(salvarLancamento, {});
   const [cancelando, iniciarCancelamento] = useTransition();
-  const [tipo, setTipo] = useState<TipoLancamento>(lancamento?.tipo ?? "entrada");
+  const [tipo, setTipo] = useState<TipoLancamento>(lancamento?.tipo ?? tipoInicial);
   const [valorTexto, setValorTexto] = useState(numeroParaCampo(lancamento?.valor));
   const [forma, setForma] = useState<FormaPagamento | "">(lancamento?.forma_pagamento ?? "");
   const [parcelas, setParcelas] = useState(lancamento?.parcelas && lancamento.parcelas > 1 ? lancamento.parcelas : 2);

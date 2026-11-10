@@ -120,7 +120,7 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
 
 export async function mudarStatus(id: string, status: StatusAgendamento): Promise<AcaoState> {
   await getPerfil();
-  if (status === "realizado") return falha("Use \"Realizado\" para registrar o pagamento.");
+  if (status === "realizado") return falha("Use \"Concluído\" para registrar o pagamento.");
   const supabase = await createClient();
   const { error } = await supabase
     .from("agendamentos")

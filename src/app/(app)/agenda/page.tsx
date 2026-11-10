@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Agenda" };
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ d?: string; v?: string }>;
+  searchParams: Promise<{ d?: string; v?: string; a?: string; novo?: string }>;
 }) {
   const sp = await searchParams;
   const hoje = hojeISO();
@@ -99,6 +99,8 @@ export default async function AgendaPage({
       clientes={(clientes.data ?? []).map((c) => c.nome)}
       taxas={(taxas.data ?? []).map((t) => ({ ...t, taxa_percentual: Number(t.taxa_percentual) })) as TaxaPagamento[]}
       bloqueios={bloqueios.data ?? []}
+      abrirId={sp.a ?? null}
+      abrirNovo={sp.novo === "1"}
     />
   );
 }
