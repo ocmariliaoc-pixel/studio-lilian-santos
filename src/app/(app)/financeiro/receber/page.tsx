@@ -85,9 +85,33 @@ export default async function ContasReceberPage() {
             <Caixa titulo="Só no banco" valor={faltam.reduce((s, m) => s + m.valor, 0)} detalhe={`${faltam.length} para lançar`} destaque={faltam.length > 0} />
           </div>
         )}
+        <Legenda
+          itens={[
+            ["✅ no caixa", "a entrada do banco já está lançada no caixa (conferida por valor, data e nome)."],
+            ["💳 repasse do cartão", "dinheiro das vendas no crédito/débito que a Ton repassou; as vendas já estão no caixa."],
+            ["Lançar no caixa", "entrada que só está no banco: vira uma venda por Pix como “serviço a confirmar” — depois abra no Caixa e escreva o serviço."],
+            ["Ignorar", "não é venda (ex.: transferência entre contas); sai da conta e pode ser reaberto."],
+          ]}
+        />
         <ListaExtrato movimentos={movimentos} admin={admin} />
       </section>
     </div>
+  );
+}
+
+function Legenda({ itens }: { itens: [string, string][] }) {
+  return (
+    <details className="bg-card rounded-xl border px-4 py-3 text-sm" open>
+      <summary className="cursor-pointer text-xs font-semibold tracking-widest text-muted-foreground uppercase">Legenda</summary>
+      <dl className="mt-2 space-y-1.5">
+        {itens.map(([t, d]) => (
+          <div key={t} className="grid grid-cols-[9.5rem_1fr] gap-2">
+            <dt className="font-medium">{t}</dt>
+            <dd className="text-muted-foreground">{d}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
   );
 }
 

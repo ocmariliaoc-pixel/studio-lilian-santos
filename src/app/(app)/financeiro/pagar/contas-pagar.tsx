@@ -60,6 +60,24 @@ export function ContasPagar({
         <Numero titulo="Atrasado" valor={formatMoeda(atrasado)} cor={atrasado ? "text-rose-700" : ""} />
       </div>
 
+      <details className="bg-card rounded-xl border px-4 py-3 text-sm">
+        <summary className="text-muted-foreground cursor-pointer text-xs font-semibold tracking-widest uppercase">Legenda</summary>
+        <dl className="mt-2 space-y-1.5">
+          {[
+            ["paga", "já tem saída no caixa para esse vencimento."],
+            ["atrasada", "o dia de vencimento passou e ainda não foi paga."],
+            ["vence hoje", "vence hoje."],
+            ["a vencer", "vence mais para frente no mês."],
+            ["Pagar", "registra a saída no caixa com a data do pagamento (dá para desfazer)."],
+          ].map(([t, d]) => (
+            <div key={t} className="grid grid-cols-[6.5rem_1fr] gap-2">
+              <dt className="font-medium">{t}</dt>
+              <dd className="text-muted-foreground">{d}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
+
       <ul className="bg-card divide-y overflow-hidden rounded-xl border">
         {itens.map((i) => {
           const s = SITUACAO[i.situacao];

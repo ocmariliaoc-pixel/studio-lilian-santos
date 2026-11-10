@@ -31,7 +31,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   const semanaDe = inicioSemana(hoje);
 
   const supabase = await createClient();
-  const [meta, doMes, recentes, horarios, daSemana] = await Promise.all([
+  const [meta, doMes, recentes, horarios, daSemana, contasFixas] = await Promise.all([
     supabase.from("metas").select("*").lte("mes", mes).order("mes", { ascending: false }).limit(1).maybeSingle(),
     supabase
       .from("lancamentos")
@@ -55,6 +55,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
       .eq("cancelado", false)
       .gte("data", semanaDe)
       .lte("data", somarDias(semanaDe, 6)),
+    supabase.from("contas_fixas").select("nome, categoria, valor, dias").eq("ativo", true).order("nome"),
   ]);
 
   if (meta.error || doMes.error) {
@@ -66,10 +67,18 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
     );
   }
 
+  // Contas a pagar (contas fixas) entram na meta automaticamente: valor × vencimentos no mês
+  const fixas = (contasFixas.data ?? []).map((c) => ({
+    nome: `${c.nome} (contas a pagar)`,
+    valor: Math.round(Number(c.valor) * (c.dias as number[]).length * 100) / 100,
+    pessoas: c.categoria === "Pessoas",
+  }));
+  const extrasCustos = ((meta.data?.custos as ItemCusto[]) ?? []).map((i) => ({ nome: i.nome, valor: Number(i.valor) }));
+  const extrasPessoas = ((meta.data?.pessoas as ItemCusto[]) ?? []).map((i) => ({ nome: i.nome, valor: Number(i.valor) }));
   const parametros: ParametrosMeta = {
     mes,
-    custos: ((meta.data?.custos as ItemCusto[]) ?? []).map((i) => ({ nome: i.nome, valor: Number(i.valor) })),
-    pessoas: ((meta.data?.pessoas as ItemCusto[]) ?? []).map((i) => ({ nome: i.nome, valor: Number(i.valor) })),
+    custos: [...fixas.filter((f) => !f.pessoas).map(({ nome, valor }) => ({ nome, valor })), ...extrasCustos],
+    pessoas: [...fixas.filter((f) => f.pessoas).map(({ nome, valor }) => ({ nome, valor })), ...extrasPessoas],
     lucro_desejado: Number(meta.data?.lucro_desejado ?? 0),
     insumos_pct: Number(meta.data?.insumos_pct ?? 0),
     ticket_alvo: meta.data?.ticket_alvo ? Number(meta.data.ticket_alvo) : null,
@@ -123,7 +132,11 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader titulo="Metas" descricao="Quanto o studio precisa faturar para pagar tudo e dar lucro.">
-        {admin ? <MetaForm parametros={parametros} nomeMes={titulo} /> : <SomenteLeitura />}
+        {admin ? (
+          <MetaForm parametros={{ ...parametros, custos: extrasCustos, pessoas: extrasPessoas }} nomeMes={titulo} />
+        ) : (
+          <SomenteLeitura />
+        )}
       </PageHeader>
 
       <div className="mb-5 flex items-center justify-between">
@@ -206,6 +219,10 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
       {/* Como a meta foi calculada */}
       <section className="bg-card mt-6 rounded-xl border">
         <h2 className="border-b px-5 py-3 font-sans text-sm font-semibold">Como a meta é calculada</h2>
+        <p className="text-muted-foreground border-b px-5 py-2 text-xs">
+          As contas fixas vêm de Financeiro → Contas a pagar (mudou lá, muda aqui). Em &ldquo;Ajustar números&rdquo; ficam só os
+          custos que não são conta fixa (ex.: insumos) e o lucro desejado.
+        </p>
         {parametros.herdada && (
           <p className="text-muted-foreground border-b px-5 py-2 text-xs">Usando os números do último mês com meta salva.</p>
         )}

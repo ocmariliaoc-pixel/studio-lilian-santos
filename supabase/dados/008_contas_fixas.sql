@@ -6,7 +6,8 @@ insert into public.contas_fixas (nome, categoria, valor, dias) values
   ('Jocélia',          'Pessoas',        650.00, '{30}'),
   ('Internet',         'Outros',          79.90, '{5}'),
   ('IPTU',             'Impostos',        23.36, '{5}'),
-  ('DAS (MEI)',        'Impostos',        87.05, '{20}')
+  ('DAS (MEI)',        'Impostos',        87.05, '{20}'),
+  ('Contador',         'Contador/MEI',   200.00, '{10}')   -- dia de vencimento a confirmar
 on conflict (nome) do update set
   categoria = excluded.categoria, valor = excluded.valor, dias = excluded.dias, ativo = true;
 
