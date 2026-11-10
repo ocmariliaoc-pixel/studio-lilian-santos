@@ -187,5 +187,7 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - **Padrão brasileiro (revisão final):** nunca usar `type="date"`/`type="time"` direto (seguem o idioma do celular: mm/dd e AM/PM). Usar `CampoData` (digita dd/mm/aaaa com barras automáticas, aceita dd/mm/aa, ícone abre o calendário do sistema; envia aaaa-mm-dd num hidden com o `name`) e `CampoHora` (hora : minuto em 24h, `compacto` para colunas estreitas) de `components/ui/campo-data.tsx`. `ValidacaoPtBR` (no layout raiz) traduz as mensagens nativas de validação ("Preencha este campo."). Números na tela com vírgula (eixo do gráfico "12,3 mil"). Páginas de erro em português (`(app)/error.tsx`, `global-error.tsx`).
 - **Metas — dias de atendimento:** botões "Terça a sábado" (padrão) e "Terça a domingo" (`ESCALAS` em `lib/metas.ts`, `?dias=` + cookie `metas_dias`); a meta por dia, os dias restantes e o ritmo do gráfico usam só esses dias (não os horários da agenda).
 - Exportação Excel: `src/app/(app)/financeiro/exportar/route.ts` (exceljs), abas Lançamentos e Resumo.
+- **Pendências para corrigir depois:**
+  - Registrar venda (botão do Início), no celular: a lista de clientes não abre ao tocar no campo Cliente. O `<datalist>` não mostra lista no iPhone (só sugestões em cima do teclado). Trocar por uma busca própria: lista que abre embaixo do campo, filtrando pelo que é digitado, com toque grande. Usar o mesmo componente no campo Cliente do agendamento.
 - Variáveis de ambiente: ver `.env.example`.
 - Antes de commitar: `npm run lint` e `npm run build`.
