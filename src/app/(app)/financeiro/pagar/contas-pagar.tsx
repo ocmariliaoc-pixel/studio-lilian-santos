@@ -46,6 +46,11 @@ export function ContasPagar({
   const [pagando, setPagando] = useState<ContaDoMes | null>(null);
   const [editando, setEditando] = useState<ContaFixa | null | "nova">(null);
   const [pendente, iniciar] = useTransition();
+  // Tocar num quadrinho do resumo filtra a lista
+  const [filtro, setFiltro] = useState<"todas" | "pagas" | "abertas" | "atrasadas">("todas");
+  const listados = itens.filter((i) =>
+    filtro === "pagas" ? !!i.pagamento : filtro === "abertas" ? !i.pagamento : filtro === "atrasadas" ? i.situacao === "atrasada" : true
+  );
 
   const total = itens.reduce((s, i) => s + i.conta.valor, 0);
   const pago = itens.filter((i) => i.pagamento).reduce((s, i) => s + (i.pagamento?.valor ?? 0), 0);
@@ -55,10 +60,10 @@ export function ContasPagar({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Numero titulo="Contas do mês" valor={formatMoeda(total)} />
-        <Numero titulo="Já pago" valor={formatMoeda(pago)} cor="text-emerald-700" />
-        <Numero titulo="Falta pagar" valor={formatMoeda(aberto)} />
-        <Numero titulo="Atrasado" valor={formatMoeda(atrasado)} cor={atrasado ? "text-rose-700" : ""} />
+        <Numero titulo="Contas do mês" valor={formatMoeda(total)} detalhe={`${itens.length} vencimentos`} ativo={filtro === "todas"} onClick={() => setFiltro("todas")} />
+        <Numero titulo="Já pago" valor={formatMoeda(pago)} cor="text-emerald-700" detalhe={`${itens.filter((i) => i.pagamento).length} pagas · ver`} ativo={filtro === "pagas"} onClick={() => setFiltro("pagas")} />
+        <Numero titulo="Falta pagar" valor={formatMoeda(aberto)} detalhe={`${itens.filter((i) => !i.pagamento).length} contas · ver`} ativo={filtro === "abertas"} onClick={() => setFiltro("abertas")} />
+        <Numero titulo="Atrasado" valor={formatMoeda(atrasado)} cor={atrasado ? "text-rose-700" : ""} detalhe={`${itens.filter((i) => i.situacao === "atrasada").length} contas · ver`} ativo={filtro === "atrasadas"} onClick={() => setFiltro("atrasadas")} />
       </div>
 
       <details className="bg-card rounded-xl border px-4 py-3 text-sm">
@@ -79,8 +84,23 @@ export function ContasPagar({
         </dl>
       </details>
 
-      <ul className="bg-card divide-y overflow-hidden rounded-xl border">
-        {itens.map((i) => {
+      {filtro !== "todas" && (
+        <p className="bg-secondary/60 flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm">
+          <span>
+            Mostrando só as contas{" "}
+            {filtro === "pagas" ? "pagas" : filtro === "abertas" ? "que faltam pagar" : "atrasadas"} · {listados.length}
+          </span>
+          <button type="button" className="font-medium underline" onClick={() => setFiltro("todas")}>
+            ver todas
+          </button>
+        </p>
+      )}
+
+      {listados.length === 0 && (
+        <p className="text-muted-foreground bg-card rounded-xl border px-4 py-3 text-sm">Nenhuma conta aqui. 🎉</p>
+      )}
+      <ul className={cn("bg-card divide-y overflow-hidden rounded-xl border", listados.length === 0 && "hidden")}>
+        {listados.map((i) => {
           const s = SITUACAO[i.situacao];
           return (
             <li key={`${i.conta.id}-${i.vencimento}`} className="flex flex-wrap items-center gap-3 px-4 py-3">
@@ -269,11 +289,34 @@ function FormConta({ conta, onFeito }: { conta: ContaFixa | null; onFeito: () =>
   );
 }
 
-function Numero({ titulo, valor, cor }: { titulo: string; valor: string; cor?: string }) {
+function Numero({
+  titulo,
+  valor,
+  cor,
+  detalhe,
+  ativo,
+  onClick,
+}: {
+  titulo: string;
+  valor: string;
+  cor?: string;
+  detalhe?: string;
+  ativo?: boolean;
+  onClick?: () => void;
+}) {
   return (
-    <div className="bg-card rounded-xl border p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={ativo}
+      className={cn(
+        "bg-card hover:border-gold rounded-xl border p-4 text-left transition-colors",
+        ativo && "border-gold ring-gold/40 ring-2"
+      )}
+    >
       <p className="text-muted-foreground text-xs font-medium">{titulo}</p>
       <p className={cn("mt-1 text-lg font-semibold tabular-nums", cor)}>{valor}</p>
-    </div>
+      {detalhe && <p className="text-muted-foreground mt-0.5 text-xs">{detalhe}</p>}
+    </button>
   );
 }
