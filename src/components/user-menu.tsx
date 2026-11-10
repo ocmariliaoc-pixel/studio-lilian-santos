@@ -1,6 +1,7 @@
 "use client";
 
 import { LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Perfil } from "@/lib/auth";
 import {
   DropdownMenu,
@@ -22,17 +23,33 @@ export function iniciais(nome: string) {
     .join("");
 }
 
-export function UserMenu({ perfil, showName = false }: { perfil: Perfil; showName?: boolean }) {
+export function UserMenu({
+  perfil,
+  showName = false,
+  escuro = false,
+}: {
+  perfil: Perfil;
+  showName?: boolean;
+  /** true no menu lateral escuro */
+  escuro?: boolean;
+}) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="hover:bg-secondary flex w-full items-center gap-3 rounded-lg p-1.5 text-left outline-none">
+      <DropdownMenuTrigger
+        className={cn(
+          "flex w-full items-center gap-3 rounded-md p-1.5 text-left outline-none",
+          escuro ? "hover:bg-white/5" : "hover:bg-secondary"
+        )}
+      >
         <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
           {iniciais(perfil.nome)}
         </span>
         {showName && (
           <span className="min-w-0 leading-tight">
-            <span className="block truncate text-sm font-medium">{perfil.nome}</span>
-            <span className="text-muted-foreground block text-xs">{PAPEL_LABEL[perfil.papel]}</span>
+            <span className={cn("block truncate text-sm font-medium", escuro && "text-white")}>{perfil.nome}</span>
+            <span className={cn("block text-xs", escuro ? "text-gold" : "text-muted-foreground")}>
+              {PAPEL_LABEL[perfil.papel]}
+            </span>
           </span>
         )}
       </DropdownMenuTrigger>

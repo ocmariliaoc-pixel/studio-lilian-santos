@@ -32,13 +32,13 @@ export function SidebarNav({ papel }: { papel: Papel }) {
           key={href}
           href={href}
           className={cn(
-            "flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+            "flex h-10 items-center gap-3 rounded-md border-l-2 px-3 text-sm font-medium transition-colors",
             ativo(href)
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-sidebar-foreground/80 hover:bg-secondary"
+              ? "border-gold bg-white/[0.07] text-white"
+              : "text-sidebar-foreground/65 border-transparent hover:bg-white/5 hover:text-white"
           )}
         >
-          <Icon className="size-5" />
+          <Icon className={cn("size-[18px]", ativo(href) && "text-gold")} />
           {label}
         </Link>
       ))}
@@ -56,7 +56,7 @@ export function BottomNav({ papel }: { papel: Papel }) {
   const classe = (on: boolean) =>
     cn(
       "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium transition-colors",
-      on ? "text-primary" : "text-muted-foreground"
+      on ? "text-gold-dark" : "text-muted-foreground"
     );
 
   return (

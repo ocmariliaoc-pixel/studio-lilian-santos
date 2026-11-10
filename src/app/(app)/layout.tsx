@@ -12,18 +12,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-dvh md:flex">
       {/* Menu lateral (md+) */}
-      <aside className="bg-sidebar sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r p-4 md:flex">
-        <Link href="/" className="mb-8 px-2 pt-2">
-          <Logo />
+      <aside className="bg-sidebar text-sidebar-foreground sticky top-0 hidden h-dvh w-64 shrink-0 flex-col p-4 md:flex">
+        <Link href="/" className="mb-10 px-2 pt-3">
+          <Logo claro />
         </Link>
         <SidebarNav papel={perfil.papel} />
-        <div className="mt-auto border-t pt-3">
-          <UserMenu perfil={perfil} showName />
+        <div className="mt-auto border-t border-white/10 pt-3">
+          <UserMenu perfil={perfil} showName escuro />
         </div>
       </aside>
 
       {/* Cabeçalho (celular) */}
-      <header className="bg-background/90 sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
+      <header className="bg-card/95 sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
         <Link href="/">
           <Logo />
         </Link>
