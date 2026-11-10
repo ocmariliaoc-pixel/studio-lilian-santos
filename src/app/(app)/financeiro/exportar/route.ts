@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
   await getPerfil();
   const sp = request.nextUrl.searchParams;
   const p = sp.get("p");
-  const tipo: TipoPeriodo = p === "dia" || p === "ano" ? p : "mes";
+  const tipo: TipoPeriodo = p === "dia" || p === "semana" || p === "ano" || p === "total" ? p : "mes";
+  const f = sp.get("f");
+  const filtro = f === "entradas" ? "entrada" : f === "saidas" ? "saida" : null;
   const d = sp.get("d");
   const periodo = calcularPeriodo(tipo, isDataISO(d) ? d : hojeISO());
 
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
 
   if (error) return NextResponse.json({ erro: "Não foi possível exportar." }, { status: 500 });
 
-  const lancamentos = (data ?? []).map(lancamentoDaLinha);
+  const lancamentos = (data ?? []).map(lancamentoDaLinha).filter((l) => !filtro || l.tipo === filtro);
   const resumo = resumir(lancamentos);
 
   const wb = new ExcelJS.Workbook();
@@ -103,7 +105,7 @@ export async function GET(request: NextRequest) {
   for (const f of resumo.porForma) rs.addRow({ a: FORMAS_PAGAMENTO[f.forma], b: f.bruto });
 
   const buffer = await wb.xlsx.writeBuffer();
-  const nome = `financeiro-${tipo}-${periodo.de}.xlsx`;
+  const nome = `${filtro === "entrada" ? "entradas" : filtro === "saida" ? "saidas" : "financeiro"}-${tipo === "total" ? "total" : `${tipo}-${periodo.de}`}.xlsx`;
   return new NextResponse(buffer as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

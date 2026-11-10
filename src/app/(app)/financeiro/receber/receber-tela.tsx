@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { CheckCircle2, CreditCard, EyeOff, FileUp, Loader2, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ export type Movimento = {
 
 export function UploadExtrato() {
   const [state, action, pending] = useActionState<ImportacaoState, FormData>(importarExtrato, {});
+  const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
   return (
     <form action={action} className="bg-card space-y-3 rounded-xl border p-4">
       <div className="flex items-start gap-3">
@@ -36,14 +37,21 @@ export function UploadExtrato() {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="file"
-          name="arquivo"
-          accept="application/pdf,.pdf"
-          required
-          className="file:bg-secondary file:text-foreground text-sm file:mr-3 file:rounded-md file:border-0 file:px-3 file:py-2 file:font-medium"
-        />
-        <Button type="submit" disabled={pending}>
+        {/* input escondido: o botão e o texto ficam em português em qualquer navegador */}
+        <label className="hover:bg-secondary flex h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-medium">
+          <FileUp className="size-4" />
+          Escolher PDF do extrato
+          <input
+            type="file"
+            name="arquivo"
+            accept="application/pdf,.pdf"
+            required
+            className="sr-only"
+            onChange={(e) => setNomeArquivo(e.target.files?.[0]?.name ?? null)}
+          />
+        </label>
+        <span className="text-muted-foreground min-w-0 truncate text-sm">{nomeArquivo ?? "Nenhum arquivo escolhido"}</span>
+        <Button type="submit" disabled={pending || !nomeArquivo}>
           {pending ? <Loader2 className="animate-spin" /> : <FileUp />}
           Importar
         </Button>

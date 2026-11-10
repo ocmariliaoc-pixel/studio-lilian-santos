@@ -158,7 +158,16 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">Faturado</p>
-            <p className="mt-1 text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">{formatMoeda(faturado)}</p>
+            <Link
+              href={`/financeiro?p=mes&d=${mes}&f=entradas`}
+              className="hover:text-gold-dark mt-1 block text-4xl font-semibold tracking-tight tabular-nums underline-offset-8 hover:underline sm:text-5xl"
+              aria-label="Ver as entradas do mês"
+            >
+              {formatMoeda(faturado)}
+            </Link>
+            <Link href={`/financeiro?p=mes&d=${mes}&f=entradas`} className="text-muted-foreground text-xs underline">
+              ver as entradas e exportar Excel
+            </Link>
             <p className="mt-1 text-lg font-semibold text-gold-dark tabular-nums">{pct}% da meta</p>
           </div>
           <div className="text-right">
