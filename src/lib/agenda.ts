@@ -24,6 +24,8 @@ export type Agendamento = {
   observacoes: string | null;
   itens: ItemAgendamento[];
   lancado: boolean; // já tem lançamento no caixa
+  /** primeira vez no studio (nenhuma visita antes deste dia) → etiqueta "Nova cliente" */
+  cliente_nova?: boolean;
 };
 
 export const STATUS: Record<StatusAgendamento, { rotulo: string; classe: string }> = {

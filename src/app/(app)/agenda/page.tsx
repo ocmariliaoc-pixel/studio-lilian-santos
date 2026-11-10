@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { hojeISO, isDataISO } from "@/lib/financeiro";
-import { inicioSemana, OFFSET, somarDias, type Agendamento } from "@/lib/agenda";
+import { dataLocal, inicioSemana, OFFSET, somarDias, type Agendamento } from "@/lib/agenda";
 import { ultimoDiaDoMes } from "@/lib/metas";
 import type { HorarioDia, Servico, TaxaPagamento } from "@/lib/configuracoes";
+import { getPerfil } from "@/lib/auth";
+import { situacao } from "@/lib/tarefas";
+import { lerTarefas } from "@/lib/tarefas-server";
 import { ErroMigracao } from "@/components/erro-migracao";
 import { PageHeader } from "@/components/page-header";
 import { AgendaTela } from "./agenda-tela";
@@ -64,6 +67,30 @@ export default async function AgendaPage({
     );
   }
 
+  // Etiqueta nova/ativa: primeira visita de cada cliente (caixa ou atendimento concluído)
+  const ids = [...new Set((ags.data ?? []).map((a) => a.cliente_id as string))];
+  const [visitasCaixa, visitasAgenda, perfil, tarefas] = await Promise.all([
+    ids.length
+      ? supabase.from("lancamentos").select("cliente_id, data").in("cliente_id", ids).eq("tipo", "entrada").eq("cancelado", false)
+      : Promise.resolve({ data: [] as { cliente_id: string; data: string }[] }),
+    ids.length
+      ? supabase.from("agendamentos").select("cliente_id, inicio").in("cliente_id", ids).eq("status", "realizado")
+      : Promise.resolve({ data: [] as { cliente_id: string; inicio: string }[] }),
+    getPerfil(),
+    lerTarefas(supabase),
+  ]);
+  const primeiraVisita = new Map<string, string>();
+  const anotar = (id: string, d: string) => {
+    const atual = primeiraVisita.get(id);
+    if (!atual || d < atual) primeiraVisita.set(id, d);
+  };
+  for (const v of visitasCaixa.data ?? []) anotar(v.cliente_id, v.data);
+  for (const v of visitasAgenda.data ?? []) anotar(v.cliente_id, dataLocal(v.inicio));
+  const tarefasPendentes = (tarefas ?? []).filter((t) => {
+    const s = situacao(t, hoje);
+    return t.responsavel_id === perfil.id && s.doDia && !s.feita;
+  }).length;
+
   const agendamentos: Agendamento[] = (ags.data ?? []).map((a) => {
     const cliente = a.cliente as unknown as { nome: string; whatsapp: string | null } | null;
     const itens = ((a.itens ?? []) as { servico_id: string | null; nome: string; duracao_min: number; valor: number; ordem: number }[])
@@ -83,6 +110,7 @@ export default async function AgendaPage({
       observacoes: a.observacoes,
       itens,
       lancado: ((a.lancamentos as unknown[]) ?? []).length > 0,
+      cliente_nova: !primeiraVisita.has(a.cliente_id) || primeiraVisita.get(a.cliente_id)! >= dataLocal(a.inicio),
     };
   });
 
@@ -101,6 +129,7 @@ export default async function AgendaPage({
       bloqueios={bloqueios.data ?? []}
       abrirId={sp.a ?? null}
       abrirNovo={sp.novo === "1"}
+      tarefasPendentes={tarefas ? tarefasPendentes : null}
     />
   );
 }

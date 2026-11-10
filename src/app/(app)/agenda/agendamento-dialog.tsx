@@ -60,7 +60,7 @@ export function AgendamentoDialog(props: Props) {
           <DialogTitle>{agendamento ? agendamento.cliente_nome : "Novo agendamento"}</DialogTitle>
           <DialogDescription>
             {agendamento
-              ? `${STATUS[agendamento.status].rotulo}${agendamento.marcado_por ? ` · marcado por ${agendamento.marcado_por}` : ""}`
+              ? `${STATUS[agendamento.status].rotulo}${agendamento.cliente_nova === undefined ? "" : agendamento.cliente_nova ? " · Nova cliente (primeira vez)" : " · Cliente ativa"}${agendamento.marcado_por ? ` · marcado por ${agendamento.marcado_por}` : ""}`
               : "Escolha a cliente, o horário e os serviços."}
           </DialogDescription>
         </DialogHeader>

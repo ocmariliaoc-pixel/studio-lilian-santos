@@ -7,6 +7,7 @@ import { AlertaInventario } from "@/components/alerta-inventario";
 import { MensagensDoDia } from "@/components/mensagens-do-dia";
 import { AcoesRapidas } from "@/components/acoes-rapidas";
 import { AgendaHoje } from "@/components/agenda-hoje";
+import { ChecklistHoje } from "@/components/checklist-hoje";
 import { createClient } from "@/lib/supabase/server";
 import type { TaxaPagamento } from "@/lib/configuracoes";
 import { hojeISO } from "@/lib/financeiro";
@@ -40,7 +41,7 @@ export default async function InicioPage() {
   const supabase = await createClient();
   const [taxas, servicos, produtos, clientes] = await Promise.all([
     supabase.from("taxas_pagamento").select("forma, parcelas, taxa_percentual, ativo"),
-    supabase.from("servicos").select("nome").eq("ativo", true).order("nome"),
+    supabase.from("servicos").select("nome, preco").eq("ativo", true).order("nome"),
     supabase.from("produtos").select("id, nome, categoria, preco, estoque, controla_estoque").eq("ativo", true).order("nome"),
     supabase.from("clientes").select("nome").order("nome"),
   ]);
@@ -48,6 +49,7 @@ export default async function InicioPage() {
     hoje,
     taxas: (taxas.data ?? []).map((t) => ({ ...t, taxa_percentual: Number(t.taxa_percentual) })) as TaxaPagamento[],
     sugestoes: (servicos.data ?? []).map((x) => x.nome),
+    servicos: (servicos.data ?? []).map((x) => ({ nome: x.nome, preco: Number(x.preco) })),
     produtos: (produtos.data ?? []).map((p) => ({ ...p, preco: Number(p.preco), controla_estoque: p.controla_estoque !== false })),
     clientes: (clientes.data ?? []).map((c) => c.nome),
   };
@@ -71,6 +73,8 @@ export default async function InicioPage() {
       <AlertaInventario status={inventario} />
 
       <AgendaHoje hoje={hoje} />
+
+      <ChecklistHoje hoje={hoje} meuId={perfil.id} />
 
       <MensagensDoDia hoje={hoje} />
 

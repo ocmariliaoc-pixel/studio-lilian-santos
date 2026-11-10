@@ -54,7 +54,7 @@ export default async function FinanceiroPage({
       .order("data", { ascending: false })
       .order("criado_em", { ascending: false }),
     supabase.from("taxas_pagamento").select("forma, parcelas, taxa_percentual, ativo"),
-    supabase.from("servicos").select("nome").eq("ativo", true).order("nome"),
+    supabase.from("servicos").select("nome, preco").eq("ativo", true).order("nome"),
     supabase
       .from("produtos")
       .select("id, nome, categoria, preco, estoque, controla_estoque")
@@ -237,6 +237,7 @@ export default async function FinanceiroPage({
             taxa_percentual: Number(t.taxa_percentual),
           })) as TaxaPagamento[],
           sugestoes: (servicos.data ?? []).map((s) => s.nome),
+          servicos: (servicos.data ?? []).map((s) => ({ nome: s.nome, preco: Number(s.preco) })),
           clientes: (clientes.data ?? []).map((c) => c.nome),
           // Sem a migração 0004 a consulta falha e a venda de produto fica indisponível
           produtos: (produtos.data ?? []).map((p) => ({
