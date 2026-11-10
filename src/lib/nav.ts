@@ -25,7 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/agenda", label: "Agenda", icon: CalendarDays, papeis: ["admin", "profissional"], mobile: true },
   { href: "/clientes", label: "Clientes", icon: Users, papeis: ["admin", "profissional"], mobile: true },
   { href: "/financeiro", label: "Financeiro", icon: Wallet, papeis: ["admin", "profissional"], mobile: true },
-  { href: "/produtos", label: "Produtos", icon: Package, papeis: ["admin", "profissional"] },
+  { href: "/produtos", label: "Produtos e serviços", icon: Package, papeis: ["admin", "profissional"] },
   { href: "/metas", label: "Metas", icon: Target, papeis: ["admin", "profissional"] },
   { href: "/configuracoes", label: "Configurações", icon: Settings, papeis: ["admin"] },
 ];
