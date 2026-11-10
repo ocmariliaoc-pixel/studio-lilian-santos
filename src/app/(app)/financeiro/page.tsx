@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Caixa } from "./caixa";
+import { CategoriasSaidas } from "./categorias-saidas";
 
 export const metadata: Metadata = { title: "Financeiro" };
 
@@ -133,7 +134,21 @@ export default async function FinanceiroPage({
           valor={resumo.entradasLiquido}
           detalhe={`taxas ${formatMoeda(resumo.taxas)}`}
         />
-        <Indicador titulo="Saídas" valor={resumo.saidas} cor="saida" />
+        <Indicador
+          titulo="Saídas"
+          valor={resumo.saidas}
+          cor="saida"
+          detalhe={
+            resumo.saidasInvestimento || resumo.saidasCaucao
+              ? [
+                  resumo.saidasInvestimento ? `abertura ${formatMoeda(resumo.saidasInvestimento)}` : "",
+                  resumo.saidasCaucao ? `caução ${formatMoeda(resumo.saidasCaucao)}` : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : undefined
+          }
+        />
         <Indicador
           titulo="Saldo"
           valor={resumo.saldo}
@@ -170,6 +185,8 @@ export default async function FinanceiroPage({
           </CardContent>
         </Card>
       )}
+
+      <CategoriasSaidas lancamentos={lancamentos} />
 
       <div className="mt-6 mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-semibold">{tipo === "ano" ? "Mês a mês" : "Lançamentos"}</h2>

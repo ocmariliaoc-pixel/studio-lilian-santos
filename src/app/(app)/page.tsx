@@ -4,6 +4,8 @@ import { getPerfil, isAdmin } from "@/lib/auth";
 import { formatDataExtenso, saudacao } from "@/lib/format";
 import { lerStatusInventario } from "@/lib/produtos-server";
 import { AlertaInventario } from "@/components/alerta-inventario";
+import { MensagensDoDia } from "@/components/mensagens-do-dia";
+import { hojeISO } from "@/lib/financeiro";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Atalho = { href: string; titulo: string; descricao: string; icon: typeof Wallet };
@@ -44,6 +46,8 @@ export default async function InicioPage() {
       </div>
 
       <AlertaInventario status={inventario} />
+
+      <MensagensDoDia hoje={hojeISO()} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {atalhos.map(({ href, titulo, descricao, icon: Icon }) => (

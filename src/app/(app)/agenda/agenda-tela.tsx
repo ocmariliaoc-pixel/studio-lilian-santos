@@ -23,8 +23,9 @@ import {
 } from "@/lib/agenda";
 import { cn } from "@/lib/utils";
 import { AgendamentoDialog } from "./agendamento-dialog";
+import { BloqueioBloco, FecharHorarioBotao, type Bloqueio } from "./fechar-horario";
 
-const PX_POR_MIN = 1.6; // 30 min = 48px: dá para tocar com o dedo
+const PX_POR_MIN = 1.1; // 30 min = 33px
 const DIAS_CURTOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 export type DadosAgenda = {
@@ -38,10 +39,12 @@ export type DadosAgenda = {
   servicos: Servico[];
   clientes: string[];
   taxas: TaxaPagamento[];
+  bloqueios: Bloqueio[];
 };
 
 export function AgendaTela(props: DadosAgenda) {
-  const { hoje, data, visao, de, agendamentos, horarios } = props;
+  const { hoje, data, visao, de, agendamentos, horarios, bloqueios } = props;
+  const horarioDoDia = horarios.find((h) => h.dia_semana === diaDaSemana(data));
   const [aberto, setAberto] = useState(false);
   const [atual, setAtual] = useState<Agendamento | null>(null);
   const [novoEm, setNovoEm] = useState<{ data: string; hora: string }>({ data, hora: "09:00" });
@@ -121,6 +124,14 @@ export function AgendaTela(props: DadosAgenda) {
         </Button>
       </div>
 
+      <div className="mb-4 flex justify-end">
+        <FecharHorarioBotao
+          data={data}
+          abre={horarioDoDia ? hhmm(horarioDoDia.abre) : "08:00"}
+          fecha={horarioDoDia ? hhmm(horarioDoDia.fecha) : "20:00"}
+        />
+      </div>
+
       {paraConfirmar.length > 0 && (
         <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
           <p className="flex items-center gap-2 text-sm font-semibold">
@@ -157,15 +168,17 @@ export function AgendaTela(props: DadosAgenda) {
 
       {visao === "dia" ? (
         <VisaoDia
+          bloqueios={bloqueios.filter((b) => dataLocal(b.inicio) <= data && dataLocal(b.fim) >= data)}
           agendamentos={agendamentos.filter((a) => dataLocal(a.inicio) === data)}
           horario={horarios.find((h) => h.dia_semana === diaDaSemana(data))}
           onNovo={(hora) => novo(data, hora)}
           onAbrir={abrir}
         />
       ) : visao === "mes" ? (
-        <VisaoMes mes={`${data.slice(0, 7)}-01`} hoje={hoje} agendamentos={agendamentos} horarios={horarios} />
+        <VisaoMes mes={`${data.slice(0, 7)}-01`} hoje={hoje} agendamentos={agendamentos} horarios={horarios} bloqueios={bloqueios} />
       ) : (
         <VisaoSemana
+          bloqueios={bloqueios}
           de={de}
           hoje={hoje}
           agendamentos={agendamentos}
@@ -198,11 +211,13 @@ export function AgendaTela(props: DadosAgenda) {
 }
 
 function VisaoDia({
+  bloqueios,
   agendamentos,
   horario,
   onNovo,
   onAbrir,
 }: {
+  bloqueios: Bloqueio[];
   agendamentos: Agendamento[];
   horario: HorarioDia | undefined;
   onNovo: (hora: string) => void;
@@ -277,6 +292,12 @@ function VisaoDia({
           {/* toque num horário livre */}
           <div className="absolute inset-0 cursor-pointer" onClick={tocar} aria-label="Tocar para agendar" />
 
+          {bloqueios.map((b) => {
+            const de = Math.max(ini, minutosLocal(b.inicio));
+            const ate = Math.min(fim, minutosLocal(b.fim) || 24 * 60);
+            return <BloqueioBloco key={b.id} b={b} top={(de - ini) * PX_POR_MIN} altura={(ate - de) * PX_POR_MIN} />;
+          })}
+
           {ativos.map((a) => {
             const top = (minutosLocal(a.inicio) - ini) * PX_POR_MIN;
             const h = (minutosLocal(a.fim) - minutosLocal(a.inicio)) * PX_POR_MIN;
@@ -337,12 +358,14 @@ function VisaoDia({
 }
 
 function VisaoSemana({
+  bloqueios,
   de,
   hoje,
   agendamentos,
   horarios,
   onAbrir,
 }: {
+  bloqueios: Bloqueio[];
   de: string;
   hoje: string;
   agendamentos: Agendamento[];
@@ -365,7 +388,10 @@ function VisaoSemana({
               <span className="text-sm font-semibold capitalize">
                 {DIAS_CURTOS[diaDaSemana(d)]} {d.slice(8)}/{d.slice(5, 7)}
               </span>
-              <span className="text-muted-foreground text-xs">{fechado ? "fechado" : `${doDia.length}`}</span>
+              <span className="text-muted-foreground text-xs">
+                {bloqueios.some((b) => dataLocal(b.inicio) <= d && dataLocal(b.fim) >= d) && "🔒 "}
+                {fechado ? "fechado" : `${doDia.length}`}
+              </span>
             </Link>
             <ul className="space-y-1">
               {doDia.map((a) => (
@@ -394,7 +420,9 @@ function VisaoMes({
   hoje,
   agendamentos,
   horarios,
+  bloqueios,
 }: {
+  bloqueios: Bloqueio[];
   mes: string;
   hoje: string;
   agendamentos: Agendamento[];
@@ -452,6 +480,9 @@ function VisaoMes({
                 >
                   {Number(d.slice(8))}
                 </span>
+                {bloqueios.some((b) => dataLocal(b.inicio) <= d && dataLocal(b.fim) >= d) && (
+                  <span className="text-[11px]" title="Horário fechado">🔒</span>
+                )}
                 {lista.length > 0 && (
                   <>
                     <span className="bg-accent text-accent-foreground w-fit rounded px-1 text-[11px] font-semibold tabular-nums">

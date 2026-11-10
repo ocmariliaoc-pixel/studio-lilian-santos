@@ -11,12 +11,27 @@ import { formatData, formatHora } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ContatoCampos } from "./contato-campos";
 import { FunilGrafico } from "./funil-grafico";
+import { AcompanhamentoItem, CupomItem } from "@/components/acompanhamento-itens";
+import { cupomValido, pendenteAgora, type Acompanhamento, type Cupom } from "@/lib/acompanhamentos";
+import { somarDias } from "@/lib/agenda";
 import { StatusCampos } from "./status-campos";
 
-type Ordem = "visita" | "gasto";
-type Filtro = "todos" | "lead" | "ganho" | "perdido" | "aniversario";
+type Ordem = "visita" | "gasto" | "novo" | "antigo";
+type Filtro = "todos" | "lead" | "ganho" | "perdido" | "aniversario" | "mensagens" | "desconto";
 
-const FILTROS: { v: Filtro; rotulo: string; teste: (c: ClienteResumo, hoje: string) => boolean }[] = [
+type Extras = { acomp: Map<string, Acompanhamento[]>; cupons: Map<string, Cupom[]> };
+
+const FILTROS: { v: Filtro; rotulo: string; teste: (c: ClienteResumo, hoje: string, x: Extras) => boolean }[] = [
+  {
+    v: "mensagens",
+    rotulo: "Mensagens a enviar",
+    teste: (c, hoje, x) => (x.acomp.get(c.id) ?? []).some((a) => pendenteAgora(a, hoje)),
+  },
+  {
+    v: "desconto",
+    rotulo: "Com desconto",
+    teste: (c, hoje, x) => (x.cupons.get(c.id) ?? []).some((cu) => cupomValido(cu, hoje)),
+  },
   { v: "todos", rotulo: "Todas", teste: () => true },
   { v: "lead", rotulo: "Leads", teste: (c) => c.status === "lead" },
   { v: "ganho", rotulo: "Ganhos", teste: (c) => c.status === "ativa" || c.status === "inativa" },
@@ -47,10 +62,38 @@ const COR_FAIXA: Record<string, string> = {
   $: "bg-secondary text-secondary-foreground",
 };
 
-export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; hoje: string }) {
+const ORDENS: { v: Ordem; rotulo: string }[] = [
+  { v: "gasto", rotulo: "Quem mais gasta" },
+  { v: "visita", rotulo: "Última visita" },
+  { v: "novo", rotulo: "Mais novo" },
+  { v: "antigo", rotulo: "Mais antigo" },
+];
+
+export function ClientesLista({
+  clientes,
+  hoje,
+  acompanhamentos,
+  cupons,
+  filtroInicial,
+}: {
+  clientes: ClienteResumo[];
+  hoje: string;
+  acompanhamentos: Acompanhamento[];
+  cupons: Cupom[];
+  filtroInicial?: string;
+}) {
+  const extras = useMemo<Extras>(() => {
+    const acomp = new Map<string, Acompanhamento[]>();
+    for (const a of acompanhamentos) acomp.set(a.cliente_id, [...(acomp.get(a.cliente_id) ?? []), a]);
+    const cup = new Map<string, Cupom[]>();
+    for (const c of cupons) cup.set(c.cliente_id, [...(cup.get(c.cliente_id) ?? []), c]);
+    return { acomp, cupons: cup };
+  }, [acompanhamentos, cupons]);
   const [busca, setBusca] = useState("");
   const [ordem, setOrdem] = useState<Ordem>("gasto");
-  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [filtro, setFiltro] = useState<Filtro>(
+    FILTROS.some((f) => f.v === filtroInicial) ? (filtroInicial as Filtro) : "todos"
+  );
 
   // Ranking de quem mais gastou (só quem pagou algo)
   const posicao = useMemo(() => {
@@ -62,16 +105,18 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     const teste = FILTROS.find((f) => f.v === filtro)!.teste;
     return clientes
-      .filter((c) => teste(c, hoje))
+      .filter((c) => teste(c, hoje, extras))
       .filter((c) => !termo || c.nome.toLocaleLowerCase("pt-BR").includes(termo) ||
           (termo.replace(/\D/g, "") !== "" && c.whatsapp?.includes(termo.replace(/\D/g, ""))) ||
           c.instagram?.includes(termo.replace(/^@/, "")))
-      .sort((a, b) =>
-        ordem === "gasto"
-          ? b.total_gasto - a.total_gasto || a.nome.localeCompare(b.nome, "pt-BR")
-          : (b.ultima_visita ?? "").localeCompare(a.ultima_visita ?? "") || a.nome.localeCompare(b.nome, "pt-BR")
-      );
-  }, [clientes, busca, ordem, filtro, hoje]);
+      .sort((a, b) => {
+        const nome = a.nome.localeCompare(b.nome, "pt-BR");
+        if (ordem === "gasto") return b.total_gasto - a.total_gasto || nome;
+        if (ordem === "visita") return (b.ultima_visita ?? "").localeCompare(a.ultima_visita ?? "") || nome;
+        if (ordem === "novo") return b.criado_em.localeCompare(a.criado_em) || nome;
+        return a.criado_em.localeCompare(b.criado_em) || nome;
+      });
+  }, [clientes, busca, ordem, filtro, hoje, extras]);
 
   const maior = Math.max(...clientes.map((c) => c.total_gasto), 1);
   const total = clientes.reduce((s, c) => s + c.total_gasto, 0);
@@ -89,7 +134,7 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
         {FILTROS.map((f) => {
-          const n = clientes.filter((c) => f.teste(c, hoje)).length;
+          const n = clientes.filter((c) => f.teste(c, hoje, extras)).length;
           return (
             <button
               key={f.v}
@@ -117,19 +162,14 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
             className="pl-9"
           />
         </div>
-        <div className="bg-secondary/60 grid grid-cols-2 gap-1 rounded-xl p-1 sm:w-72">
-          {(
-            [
-              ["gasto", "Quem mais gasta"],
-              ["visita", "Última visita"],
-            ] as const
-          ).map(([v, rotulo]) => (
+        <div className="bg-secondary/60 grid grid-cols-4 gap-1 rounded-xl p-1 sm:w-[30rem]">
+          {ORDENS.map(({ v, rotulo }) => (
             <button
               key={v}
               type="button"
               onClick={() => setOrdem(v)}
               className={cn(
-                "h-10 rounded-lg text-sm font-medium",
+                "h-10 rounded-lg px-1 text-xs leading-tight font-medium sm:text-sm",
                 ordem === v ? "bg-card shadow-sm" : "text-muted-foreground"
               )}
             >
@@ -235,6 +275,20 @@ export function ClientesLista({ clientes, hoje }: { clientes: ClienteResumo[]; h
                   <p className="mt-2 rounded-md bg-sky-50 px-2.5 py-1.5 text-xs text-sky-900">
                     Próximo horário: {formatData(c.proximo_agendamento)} às {formatHora(c.proximo_agendamento)}
                   </p>
+                )}
+
+                {((extras.acomp.get(c.id) ?? []).some((a) => a.mensagem_em <= somarDias(hoje, 45) || a.mensagem_enviada) ||
+                  (extras.cupons.get(c.id) ?? []).length > 0) && (
+                  <div className="mt-2 space-y-2">
+                    {(extras.cupons.get(c.id) ?? []).map((cu) => (
+                      <CupomItem key={cu.id} c={cu} nome={c.nome} whatsapp={c.whatsapp} hoje={hoje} />
+                    ))}
+                    {(extras.acomp.get(c.id) ?? [])
+                      .filter((a) => a.mensagem_em <= somarDias(hoje, 45))
+                      .map((a) => (
+                        <AcompanhamentoItem key={a.regra} a={a} hoje={hoje} />
+                      ))}
+                  </div>
                 )}
 
                 <StatusCampos c={c} hoje={hoje} />

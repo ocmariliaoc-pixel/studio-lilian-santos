@@ -172,6 +172,11 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - **Visual executivo:** grafite + off-white, dourado da logo (`--gold` #ad8f47, `--gold-dark` #7f6630); menu lateral escuro; `font-serif` aponta para a fonte de texto (Inter) e a marca usa `font-brand` (Cinzel). Logo oficial em `public/` (logo-branca/dourada.png, monograma-branco/dourado.png; dourada gerada da branca com as cores da marca); ícone em `src/app/icon.png` e `apple-icon.png`. Componente `components/logo.tsx` (variante completa ou horizontal).
 - Agenda tem visões Dia, Semana e Mês.
 - **Meta até o fim de 2026 = "se pagar":** contas básicas (aluguel 1.750, luz 300, contador 200, insumos 300) + Lilian fixo 2.000 + Jocélia 650, sem lucro. Rever para 2027.
+- **Pós-atendimento** (`regras_acompanhamento`, view `acompanhamentos`): regra por grupo de serviço (termos no nome do lançamento ou categoria): design 15 dias → retorno 20; micro (sobrancelha e boca) 20 dias feedback → retorno 40; nanofios 180 dias convite; limpeza/dermaplaning 25 dias → 1x/mês; curso 30 dias relacionamento. Mensagem com {nome}, {servico}, {retorno}. "Mensagem enviada" grava em `acompanhamentos_feitos`. Aparece no Início (Mensagens para mandar) e na ficha da lista de clientes (`components/acompanhamento-itens.tsx`).
+- **Cupons** (`cupons`): descontos da ação do balão na inauguração (válidos até 30/11/2026), lembrete pelo WhatsApp e "usou o desconto".
+- **Agenda aberta todos os dias** (08:00–20:00, sem pausa fixa). Fechar dia/turno: `bloqueios_agenda` (botão "Fechar horário"; reabrir apaga o bloqueio); agendar em horário fechado gera aviso com "Marcar mesmo assim".
+- **Saídas por natureza:** `grupoSaida()` em `lib/financeiro.ts` separa dia a dia, investimento de abertura (Equipamentos e móveis, Reforma e estrutura, Inauguração e divulgação, Compras diversas) e caução (volta no fim do contrato). Quadro "Saídas por categoria" no Financeiro.
+- **Conciliação com o banco (até 09/11/2026):** Pix bate centavo a centavo; dois repasses de cartão sem venda lançada (23/10 R$ 415,98 e 09/11 R$ 733,59 líquidos) entraram como "Vendas no cartão — a identificar".
 - Exportação Excel: `src/app/(app)/financeiro/exportar/route.ts` (exceljs), abas Lançamentos e Resumo.
 - Variáveis de ambiente: ver `.env.example`.
 - Antes de commitar: `npm run lint` e `npm run build`.

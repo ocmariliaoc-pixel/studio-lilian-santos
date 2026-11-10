@@ -29,7 +29,7 @@ export default async function AgendaPage({
   const deBusca = [de, hoje].sort()[0];
 
   const supabase = await createClient();
-  const [ags, horarios, config, servicos, clientes, taxas] = await Promise.all([
+  const [ags, horarios, config, servicos, clientes, taxas, bloqueios] = await Promise.all([
     supabase
       .from("agendamentos")
       .select(
@@ -48,6 +48,11 @@ export default async function AgendaPage({
       .order("nome"),
     supabase.from("clientes").select("nome").order("nome"),
     supabase.from("taxas_pagamento").select("forma, parcelas, taxa_percentual, ativo"),
+    supabase
+      .from("bloqueios_agenda")
+      .select("id, inicio, fim, motivo")
+      .lt("inicio", `${somarDias(ateBusca, 1)}T00:00:00${OFFSET}`)
+      .gt("fim", `${deBusca}T00:00:00${OFFSET}`),
   ]);
 
   if (ags.error || horarios.error) {
@@ -93,6 +98,7 @@ export default async function AgendaPage({
       servicos={(servicos.data ?? []).map((s) => ({ ...s, preco: Number(s.preco) })) as Servico[]}
       clientes={(clientes.data ?? []).map((c) => c.nome)}
       taxas={(taxas.data ?? []).map((t) => ({ ...t, taxa_percentual: Number(t.taxa_percentual) })) as TaxaPagamento[]}
+      bloqueios={bloqueios.data ?? []}
     />
   );
 }

@@ -24,17 +24,41 @@ export type Lancamento = {
 
 export const CATEGORIAS_ENTRADA = ["Serviço", "Produto", "Curso", "Brinde", "Outro"];
 export const CATEGORIAS_SAIDA = [
-  "Produtos",
+  "Pessoas",
   "Aluguel",
   "Energia/Água",
-  "Marketing",
-  "Equipamentos",
-  "Impostos",
   "Contador/MEI",
-  "Pessoal",
-  "Montagem do studio",
+  "Produtos/insumos",
+  "Marketing e divulgação",
+  "Serviços",
+  "Impostos",
+  "Equipamentos e móveis",
+  "Reforma e estrutura",
+  "Inauguração e divulgação",
+  "Compras diversas",
+  "Caução",
   "Outros",
 ];
+
+/** Gastos únicos de abertura (não se repetem todo mês). */
+export const CATEGORIAS_INVESTIMENTO = [
+  "Equipamentos e móveis",
+  "Reforma e estrutura",
+  "Inauguração e divulgação",
+  "Compras diversas",
+  // nomes antigos
+  "Montagem do studio",
+  "Equipamentos",
+];
+
+/** Dinheiro guardado que volta (não é custo). */
+export const CATEGORIAS_CAUCAO = ["Caução"];
+
+export function grupoSaida(categoria: string | null): "operacional" | "investimento" | "caucao" {
+  if (categoria && CATEGORIAS_CAUCAO.includes(categoria)) return "caucao";
+  if (categoria && CATEGORIAS_INVESTIMENTO.includes(categoria)) return "investimento";
+  return "operacional";
+}
 
 /** Converte a linha do Supabase (numeric chega como texto) para Lancamento. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -149,6 +173,8 @@ export type Resumo = {
   taxas: number;
   entradasLiquido: number;
   saidas: number;
+  saidasInvestimento: number;
+  saidasCaucao: number;
   saldo: number;
   qtdEntradas: number;
   brindes: number;
@@ -181,6 +207,8 @@ export function resumir(lancamentos: Lancamento[]): Resumo {
     taxas: centavos(entradasBruto - entradasLiquido),
     entradasLiquido,
     saidas: totalSaidas,
+    saidasInvestimento: centavos(saidas.filter((l) => grupoSaida(l.categoria) === "investimento").reduce((s, l) => s + l.valor, 0)),
+    saidasCaucao: centavos(saidas.filter((l) => grupoSaida(l.categoria) === "caucao").reduce((s, l) => s + l.valor, 0)),
     saldo: centavos(entradasLiquido - totalSaidas),
     qtdEntradas: entradas.filter((l) => l.valor > 0).length,
     brindes: entradas.filter((l) => l.valor === 0).length,
