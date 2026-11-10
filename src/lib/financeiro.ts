@@ -24,17 +24,41 @@ export type Lancamento = {
 
 export const CATEGORIAS_ENTRADA = ["Serviço", "Produto", "Curso", "Brinde", "Outro"];
 export const CATEGORIAS_SAIDA = [
-  "Produtos",
+  "Pessoas",
   "Aluguel",
   "Energia/Água",
-  "Marketing",
-  "Equipamentos",
-  "Impostos",
   "Contador/MEI",
-  "Pessoal",
-  "Montagem do studio",
+  "Produtos/insumos",
+  "Marketing e divulgação",
+  "Serviços",
+  "Impostos",
+  "Equipamentos e móveis",
+  "Reforma e estrutura",
+  "Inauguração e divulgação",
+  "Compras diversas",
+  "Caução",
   "Outros",
 ];
+
+/** Gastos únicos de abertura (não se repetem todo mês). */
+export const CATEGORIAS_INVESTIMENTO = [
+  "Equipamentos e móveis",
+  "Reforma e estrutura",
+  "Inauguração e divulgação",
+  "Compras diversas",
+  // nomes antigos
+  "Montagem do studio",
+  "Equipamentos",
+];
+
+/** Dinheiro guardado que volta (não é custo). */
+export const CATEGORIAS_CAUCAO = ["Caução"];
+
+export function grupoSaida(categoria: string | null): "operacional" | "investimento" | "caucao" {
+  if (categoria && CATEGORIAS_CAUCAO.includes(categoria)) return "caucao";
+  if (categoria && CATEGORIAS_INVESTIMENTO.includes(categoria)) return "investimento";
+  return "operacional";
+}
 
 /** Converte a linha do Supabase (numeric chega como texto) para Lancamento. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,7 +95,7 @@ export function isDataISO(s: string | undefined | null): s is string {
   return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 }
 
-export type TipoPeriodo = "dia" | "mes" | "ano";
+export type TipoPeriodo = "dia" | "semana" | "mes" | "ano" | "total";
 
 export type Periodo = {
   tipo: TipoPeriodo;
@@ -120,6 +144,22 @@ export function calcularPeriodo(tipo: TipoPeriodo, ref: string): Periodo {
       proximo: iso(a, m, d + 1),
     };
   }
+  if (tipo === "semana") {
+    const dow = new Date(Date.UTC(a, m - 1, d)).getUTCDay();
+    const seg = iso(a, m, d - (dow === 0 ? 6 : dow - 1));
+    const [sa, sm, sd] = seg.split("-").map(Number);
+    const dom = iso(sa, sm, sd + 6);
+    const curto = (x: string) => `${x.slice(8)}/${x.slice(5, 7)}`;
+    return {
+      tipo, ref, de: seg, ate: dom,
+      titulo: `Semana de ${curto(seg)} a ${curto(dom)}`,
+      anterior: iso(sa, sm, sd - 7),
+      proximo: iso(sa, sm, sd + 7),
+    };
+  }
+  if (tipo === "total") {
+    return { tipo, ref, de: "2000-01-01", ate: "2100-12-31", titulo: "Desde o início", anterior: ref, proximo: ref };
+  }
   if (tipo === "mes") {
     return {
       tipo, ref,
@@ -149,6 +189,8 @@ export type Resumo = {
   taxas: number;
   entradasLiquido: number;
   saidas: number;
+  saidasInvestimento: number;
+  saidasCaucao: number;
   saldo: number;
   qtdEntradas: number;
   brindes: number;
@@ -181,6 +223,8 @@ export function resumir(lancamentos: Lancamento[]): Resumo {
     taxas: centavos(entradasBruto - entradasLiquido),
     entradasLiquido,
     saidas: totalSaidas,
+    saidasInvestimento: centavos(saidas.filter((l) => grupoSaida(l.categoria) === "investimento").reduce((s, l) => s + l.valor, 0)),
+    saidasCaucao: centavos(saidas.filter((l) => grupoSaida(l.categoria) === "caucao").reduce((s, l) => s + l.valor, 0)),
     saldo: centavos(entradasLiquido - totalSaidas),
     qtdEntradas: entradas.filter((l) => l.valor > 0).length,
     brindes: entradas.filter((l) => l.valor === 0).length,
@@ -198,4 +242,49 @@ export function resumir(lancamentos: Lancamento[]): Resumo {
 export function nomeForma(forma: FormaPagamento | null, parcelas: number, nomes: Record<string, string>) {
   if (!forma) return "—";
   return forma === "credito_parcelado" ? `Crédito ${parcelas}x` : nomes[forma];
+}
+
+// ---------------------------------------------------------------------------
+// Balanço por mês
+// ---------------------------------------------------------------------------
+export type LinhaBalanco = {
+  mes: string; // AAAA-MM
+  entradas: number;
+  taxas: number;
+  liquido: number;
+  diaADia: number;
+  abertura: number;
+  caucao: number;
+  operacional: number; // líquido − dia a dia
+  saldo: number; // líquido − todas as saídas
+  acumulado: number;
+};
+
+export function balancoMensal(lancamentos: Lancamento[]): LinhaBalanco[] {
+  const meses = new Map<string, Lancamento[]>();
+  for (const l of lancamentos) {
+    if (l.cancelado) continue;
+    const k = l.data.slice(0, 7);
+    meses.set(k, [...(meses.get(k) ?? []), l]);
+  }
+  let acumulado = 0;
+  return [...meses.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([mes, itens]) => {
+      const r = resumir(itens);
+      const diaADia = centavos(r.saidas - r.saidasInvestimento - r.saidasCaucao);
+      acumulado = centavos(acumulado + r.saldo);
+      return {
+        mes,
+        entradas: r.entradasBruto,
+        taxas: r.taxas,
+        liquido: r.entradasLiquido,
+        diaADia,
+        abertura: r.saidasInvestimento,
+        caucao: r.saidasCaucao,
+        operacional: centavos(r.entradasLiquido - diaADia),
+        saldo: r.saldo,
+        acumulado,
+      };
+    });
 }

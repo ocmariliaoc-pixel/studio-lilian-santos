@@ -4,7 +4,13 @@ import { getPerfil, isAdmin } from "@/lib/auth";
 import { formatDataExtenso, saudacao } from "@/lib/format";
 import { lerStatusInventario } from "@/lib/produtos-server";
 import { AlertaInventario } from "@/components/alerta-inventario";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MensagensDoDia } from "@/components/mensagens-do-dia";
+import { AcoesRapidas } from "@/components/acoes-rapidas";
+import { AgendaHoje } from "@/components/agenda-hoje";
+import { createClient } from "@/lib/supabase/server";
+import type { TaxaPagamento } from "@/lib/configuracoes";
+import { hojeISO } from "@/lib/financeiro";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Atalho = { href: string; titulo: string; descricao: string; icon: typeof Wallet };
 
@@ -28,9 +34,28 @@ export default async function InicioPage() {
   const atalhos = admin ? ATALHOS_ADMIN : ATALHOS_PROFISSIONAL;
   const primeiroNome = perfil.nome.split(" ")[0];
   const inventario = await lerStatusInventario();
+  const hoje = hojeISO();
+
+  // Dados do formulário de venda/despesa
+  const supabase = await createClient();
+  const [taxas, servicos, produtos, clientes] = await Promise.all([
+    supabase.from("taxas_pagamento").select("forma, parcelas, taxa_percentual, ativo"),
+    supabase.from("servicos").select("nome").eq("ativo", true).order("nome"),
+    supabase.from("produtos").select("id, nome, categoria, preco, estoque, controla_estoque").eq("ativo", true).order("nome"),
+    supabase.from("clientes").select("nome").order("nome"),
+  ]);
+  const dados = {
+    hoje,
+    taxas: (taxas.data ?? []).map((t) => ({ ...t, taxa_percentual: Number(t.taxa_percentual) })) as TaxaPagamento[],
+    sugestoes: (servicos.data ?? []).map((x) => x.nome),
+    produtos: (produtos.data ?? []).map((p) => ({ ...p, preco: Number(p.preco), controla_estoque: p.controla_estoque !== false })),
+    clientes: (clientes.data ?? []).map((c) => c.nome),
+  };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <AcoesRapidas dados={dados} />
+
       <div>
         <p className="text-muted-foreground text-sm first-letter:uppercase">{formatDataExtenso(new Date())}</p>
         <h1 className="mt-1 text-3xl font-semibold">
@@ -44,6 +69,10 @@ export default async function InicioPage() {
       </div>
 
       <AlertaInventario status={inventario} />
+
+      <AgendaHoje hoje={hoje} />
+
+      <MensagensDoDia hoje={hoje} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {atalhos.map(({ href, titulo, descricao, icon: Icon }) => (
@@ -63,13 +92,6 @@ export default async function InicioPage() {
         ))}
       </div>
 
-      <Card className="bg-secondary/50 border-dashed">
-        <CardContent className="text-muted-foreground text-sm">
-          O painel completo do dia (agenda de hoje, faturamento x meta, aniversariantes, retornos e
-          confirmações de amanhã) chega na fase 6, depois que agenda, clientes e financeiro
-          estiverem prontos.
-        </CardContent>
-      </Card>
     </div>
   );
 }

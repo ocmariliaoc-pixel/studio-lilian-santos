@@ -16,12 +16,15 @@ export function Caixa({
   meuId,
   admin,
   mostrarLista,
+  semBotao = false,
 }: {
   lancamentos: Lancamento[];
   dados: DadosFormulario;
   meuId: string;
   admin: boolean;
   mostrarLista: boolean;
+  /** true no Financeiro: o lançamento novo fica no Início */
+  semBotao?: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
   const [atual, setAtual] = useState<Lancamento | null>(null);
@@ -38,14 +41,14 @@ export function Caixa({
   return (
     <>
       {/* Botão flutuante (no celular, acima da barra de navegação) */}
-      <Button
+      {!semBotao && <Button
         size="lg"
         onClick={() => abrir(null)}
         className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 h-14 rounded-full px-5 shadow-lg md:right-10 md:bottom-8"
       >
         <Plus className="size-5" />
         Novo lançamento
-      </Button>
+      </Button>}
 
       {mostrarLista && (
         <div className="space-y-6">

@@ -12,6 +12,8 @@ import { ErroMigracao } from "@/components/erro-migracao";
 import { SomenteLeitura } from "@/components/somente-leitura";
 import { Button } from "@/components/ui/button";
 import { MetaForm } from "./meta-form";
+import { MetaGrafico, type PontoMeta } from "./meta-grafico";
+import { diasAbertos } from "@/lib/metas";
 
 export const metadata: Metadata = { title: "Metas" };
 
@@ -29,11 +31,11 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   const semanaDe = inicioSemana(hoje);
 
   const supabase = await createClient();
-  const [meta, doMes, recentes, horarios, daSemana] = await Promise.all([
+  const [meta, doMes, recentes, horarios, daSemana, contasFixas] = await Promise.all([
     supabase.from("metas").select("*").lte("mes", mes).order("mes", { ascending: false }).limit(1).maybeSingle(),
     supabase
       .from("lancamentos")
-      .select("valor, categoria")
+      .select("valor, categoria, data")
       .eq("tipo", "entrada")
       .eq("cancelado", false)
       .gte("data", mes)
@@ -53,6 +55,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
       .eq("cancelado", false)
       .gte("data", semanaDe)
       .lte("data", somarDias(semanaDe, 6)),
+    supabase.from("contas_fixas").select("nome, categoria, valor, dias").eq("ativo", true).order("nome"),
   ]);
 
   if (meta.error || doMes.error) {
@@ -64,10 +67,18 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
     );
   }
 
+  // Contas a pagar (contas fixas) entram na meta automaticamente: valor × vencimentos no mês
+  const fixas = (contasFixas.data ?? []).map((c) => ({
+    nome: `${c.nome} (contas a pagar)`,
+    valor: Math.round(Number(c.valor) * (c.dias as number[]).length * 100) / 100,
+    pessoas: c.categoria === "Pessoas",
+  }));
+  const extrasCustos = ((meta.data?.custos as ItemCusto[]) ?? []).map((i) => ({ nome: i.nome, valor: Number(i.valor) }));
+  const extrasPessoas = ((meta.data?.pessoas as ItemCusto[]) ?? []).map((i) => ({ nome: i.nome, valor: Number(i.valor) }));
   const parametros: ParametrosMeta = {
     mes,
-    custos: ((meta.data?.custos as ItemCusto[]) ?? []).map((i) => ({ nome: i.nome, valor: Number(i.valor) })),
-    pessoas: ((meta.data?.pessoas as ItemCusto[]) ?? []).map((i) => ({ nome: i.nome, valor: Number(i.valor) })),
+    custos: [...fixas.filter((f) => !f.pessoas).map(({ nome, valor }) => ({ nome, valor })), ...extrasCustos],
+    pessoas: [...fixas.filter((f) => f.pessoas).map(({ nome, valor }) => ({ nome, valor })), ...extrasPessoas],
     lucro_desejado: Number(meta.data?.lucro_desejado ?? 0),
     insumos_pct: Number(meta.data?.insumos_pct ?? 0),
     ticket_alvo: meta.data?.ticket_alvo ? Number(meta.data.ticket_alvo) : null,
@@ -99,11 +110,33 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   const [ano, m] = mes.split("-").map(Number);
   const titulo = `${nomeMes(m)} de ${ano}`;
   const admin = isAdmin(perfil);
+  const pct = r.metaMes ? Math.round((faturado / r.metaMes) * 100) : 0;
+
+  // Gráfico: acumulado por dia (até hoje no mês atual) × ritmo da meta (proporcional aos dias abertos)
+  const diasNoMes = Number(fim.slice(8, 10));
+  const porDia = new Map<number, number>();
+  for (const l of entradasMes) porDia.set(Number(l.data.slice(8, 10)), (porDia.get(Number(l.data.slice(8, 10))) ?? 0) + Number(l.valor));
+  let acc = 0;
+  const pontos: PontoMeta[] = Array.from({ length: diasNoMes }, (_, i) => {
+    const dia = i + 1;
+    const dataDia = `${mes.slice(0, 8)}${String(dia).padStart(2, "0")}`;
+    acc += porDia.get(dia) ?? 0;
+    const abertosAte = diasAbertos(mes, dataDia, abertos);
+    return {
+      dia,
+      acumulado: dataDia <= hoje ? Math.round(acc * 100) / 100 : null,
+      meta: r.diasAtendimento ? Math.round((r.metaMes * abertosAte * 100) / r.diasAtendimento) / 100 : 0,
+    };
+  });
 
   return (
     <>
       <PageHeader titulo="Metas" descricao="Quanto o studio precisa faturar para pagar tudo e dar lucro.">
-        {admin ? <MetaForm parametros={parametros} nomeMes={titulo} /> : <SomenteLeitura />}
+        {admin ? (
+          <MetaForm parametros={{ ...parametros, custos: extrasCustos, pessoas: extrasPessoas }} nomeMes={titulo} />
+        ) : (
+          <SomenteLeitura />
+        )}
       </PageHeader>
 
       <div className="mb-5 flex items-center justify-between">
@@ -120,30 +153,57 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
         </Button>
       </div>
 
-      {/* Meta do mês: um número só, com o medidor do realizado */}
+      {/* Faturado em destaque, % da meta e a meta à direita */}
       <section className="bg-card rounded-xl border p-5">
-        <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">Meta de faturamento</p>
-        <p className="mt-1 text-4xl font-semibold tracking-tight tabular-nums">{formatMoeda(r.metaMes)}</p>
-        <div className="mt-4">
-          <div className="bg-secondary h-3 overflow-hidden rounded-full" role="meter" aria-valuemin={0} aria-valuemax={r.metaMes} aria-valuenow={faturado} aria-label="Faturado do mês">
-            <div className="bg-primary h-full rounded-full" style={{ width: `${r.progresso * 100}%` }} />
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">Faturado</p>
+            <p className="mt-1 text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">{formatMoeda(faturado)}</p>
+            <p className="mt-1 text-lg font-semibold text-gold-dark tabular-nums">{pct}% da meta</p>
           </div>
-          <div className="mt-2 flex flex-wrap justify-between gap-2 text-sm">
-            <span>
-              <b className="tabular-nums">{formatMoeda(faturado)}</b> faturado ({Math.round(r.progresso * 100)}%)
-            </span>
-            <span className="text-muted-foreground">
+          <div className="text-right">
+            <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">Meta do mês</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{formatMoeda(r.metaMes)}</p>
+            <p className="text-muted-foreground text-sm">
               {r.falta > 0 ? `faltam ${formatMoeda(r.falta)}` : "meta batida 🎉"}
-            </span>
+            </p>
+          </div>
+        </div>
+        <div className="mt-4">
+          {/* barra em degradê dourado; o número da % está ao lado (cor nunca sozinha) */}
+          <div
+            className="bg-secondary relative h-4 overflow-hidden rounded-full"
+            role="meter"
+            aria-valuemin={0}
+            aria-valuemax={r.metaMes}
+            aria-valuenow={faturado}
+            aria-label={`Faturado: ${pct}% da meta`}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(pct, 100)}%`,
+                background: "linear-gradient(90deg, #7f6630 0%, #ad8f47 55%, #e2c97f 100%)",
+              }}
+            />
+          </div>
+          <div className="text-muted-foreground mt-1 flex justify-between text-[11px] tabular-nums">
+            <span>0</span>
+            <span>50%</span>
+            <span>100%</span>
           </div>
           {ehMesAtual && r.falta > 0 && r.diasRestantes > 0 && (
             <p className="bg-secondary/60 mt-3 rounded-md px-3 py-2 text-sm">
-              Para bater: <b>{formatMoeda(r.faltaPorDia)} por dia</b> nos {r.diasRestantes} dias de atendimento que
-              restam · ≈ {r.atendimentosFaltam} atendimentos
+              Para bater: <b>{formatMoeda(r.faltaPorDia)} por dia</b> nos {r.diasRestantes} dias que restam · ≈{" "}
+              {r.atendimentosFaltam} atendimentos
             </p>
           )}
         </div>
       </section>
+
+      <div className="mt-4">
+        <MetaGrafico pontos={pontos} metaMes={r.metaMes} />
+      </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Indicador titulo="Por semana" valor={formatMoeda(r.metaSemana)} detalhe={ehMesAtual ? `esta semana: ${formatMoeda(semana)}` : undefined} />
@@ -159,6 +219,10 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
       {/* Como a meta foi calculada */}
       <section className="bg-card mt-6 rounded-xl border">
         <h2 className="border-b px-5 py-3 font-sans text-sm font-semibold">Como a meta é calculada</h2>
+        <p className="text-muted-foreground border-b px-5 py-2 text-xs">
+          As contas fixas vêm de Financeiro → Contas a pagar (mudou lá, muda aqui). Em &ldquo;Ajustar números&rdquo; ficam só os
+          custos que não são conta fixa (ex.: insumos) e o lucro desejado.
+        </p>
         {parametros.herdada && (
           <p className="text-muted-foreground border-b px-5 py-2 text-xs">Usando os números do último mês com meta salva.</p>
         )}

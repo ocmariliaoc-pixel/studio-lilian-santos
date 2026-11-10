@@ -79,6 +79,20 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
         aviso = `Passa pela pausa (${hhmm(h.pausa_inicio)} às ${hhmm(h.pausa_fim)}).`;
       if (aviso) return { ...falha(aviso), foraDoHorario: aviso };
     }
+    // Horário fechado pelo botão "Fechar horário"
+    const inicioISO = paraISO(data, hora);
+    const fimISO = new Date(new Date(inicioISO).getTime() + duracao * 60_000).toISOString();
+    const { data: bloqueio } = await supabase
+      .from("bloqueios_agenda")
+      .select("motivo")
+      .lt("inicio", fimISO)
+      .gt("fim", inicioISO)
+      .limit(1)
+      .maybeSingle();
+    if (bloqueio) {
+      const aviso = `A agenda está fechada nesse horário (${bloqueio.motivo}).`;
+      return { ...falha(aviso), foraDoHorario: aviso };
+    }
   }
 
   const clienteId = await acharOuCriarCliente(supabase, clienteNome);
@@ -106,7 +120,7 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
 
 export async function mudarStatus(id: string, status: StatusAgendamento): Promise<AcaoState> {
   await getPerfil();
-  if (status === "realizado") return falha("Use \"Realizado\" para registrar o pagamento.");
+  if (status === "realizado") return falha("Use \"Concluído\" para registrar o pagamento.");
   const supabase = await createClient();
   const { error } = await supabase
     .from("agendamentos")
@@ -166,6 +180,36 @@ export async function marcarRealizado(
     .eq("id", id);
   if (e3) return falha(mensagemErroBanco(e3));
 
+  revalidar();
+  return sucesso();
+}
+
+// ---------------------------------------------------------------------------
+// Fechar / reabrir horário (dia inteiro, manhã, tarde ou intervalo)
+// ---------------------------------------------------------------------------
+export async function fecharHorario(_: AcaoState, formData: FormData): Promise<AcaoState> {
+  await getPerfil();
+  const data = String(formData.get("data") ?? "");
+  const de = String(formData.get("de") ?? "");
+  const ate = String(formData.get("ate") ?? "");
+  const motivo = String(formData.get("motivo") ?? "").trim() || "Fechado";
+  if (!isDataISO(data)) return falha("Escolha o dia.");
+  if (!/^\d{2}:\d{2}$/.test(de) || !/^\d{2}:\d{2}$/.test(ate) || ate <= de) return falha("Confira o horário (de / até).");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("bloqueios_agenda")
+    .insert({ inicio: paraISO(data, de), fim: paraISO(data, ate), motivo });
+  if (error) return falha(mensagemErroBanco(error));
+  revalidar();
+  return sucesso();
+}
+
+export async function reabrirHorario(id: string): Promise<AcaoState> {
+  await getPerfil();
+  const supabase = await createClient();
+  const { error } = await supabase.from("bloqueios_agenda").delete().eq("id", id);
+  if (error) return falha(mensagemErroBanco(error));
   revalidar();
   return sucesso();
 }

@@ -106,8 +106,12 @@ function Formulario({ parametros: p, onSalvo }: { parametros: ParametrosMeta; on
       <input type="hidden" name="custos" value={JSON.stringify(custos)} />
       <input type="hidden" name="pessoas" value={JSON.stringify(pessoas)} />
 
-      <ListaValores titulo="Custos fixos do mês" linhas={custos} setLinhas={setCustos} exemplo="Ex.: Aluguel" />
-      <ListaValores titulo="Pagamento das pessoas" linhas={pessoas} setLinhas={setPessoas} exemplo="Ex.: Lilian (fixo)" />
+      <p className="bg-secondary/60 rounded-md px-3 py-2 text-xs">
+        Aluguel, luz, Lilian, Jocélia e as outras contas fixas já entram sozinhas (Financeiro → Contas a pagar). Aqui, só o
+        que não é conta fixa.
+      </p>
+      <ListaValores titulo="Outros custos do mês" linhas={custos} setLinhas={setCustos} exemplo="Ex.: Insumos" />
+      <ListaValores titulo="Outros pagamentos de pessoas" linhas={pessoas} setLinhas={setPessoas} exemplo="Ex.: comissão" />
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">

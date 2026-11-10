@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BellRing, ChevronLeft, ChevronRight, MessageCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,9 @@ import {
 } from "@/lib/agenda";
 import { cn } from "@/lib/utils";
 import { AgendamentoDialog } from "./agendamento-dialog";
+import { BloqueioBloco, FecharHorarioBotao, type Bloqueio } from "./fechar-horario";
 
-const PX_POR_MIN = 1.6; // 30 min = 48px: dá para tocar com o dedo
+const PX_POR_MIN = 0.8; // 1 hora = 48px (a grade rola numa área própria)
 const DIAS_CURTOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 export type DadosAgenda = {
@@ -38,13 +39,32 @@ export type DadosAgenda = {
   servicos: Servico[];
   clientes: string[];
   taxas: TaxaPagamento[];
+  bloqueios: Bloqueio[];
+  abrirId?: string | null;
+  abrirNovo?: boolean;
 };
 
 export function AgendaTela(props: DadosAgenda) {
-  const { hoje, data, visao, de, agendamentos, horarios } = props;
+  const { hoje, data, visao, de, agendamentos, horarios, bloqueios } = props;
+  const horarioDoDia = horarios.find((h) => h.dia_semana === diaDaSemana(data));
   const [aberto, setAberto] = useState(false);
   const [atual, setAtual] = useState<Agendamento | null>(null);
   const [novoEm, setNovoEm] = useState<{ data: string; hora: string }>({ data, hora: "09:00" });
+
+  // Vindo do Início: abre um atendimento (?a=) ou um agendamento novo (?novo=1)
+  useEffect(() => {
+    if (props.abrirId) {
+      const a = agendamentos.find((x) => x.id === props.abrirId);
+      if (a) {
+        setAtual(a);
+        setAberto(true);
+      }
+    } else if (props.abrirNovo) {
+      setAtual(null);
+      setAberto(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.abrirId, props.abrirNovo]);
 
   function novo(dataNova: string, hora: string) {
     setAtual(null);
@@ -121,6 +141,14 @@ export function AgendaTela(props: DadosAgenda) {
         </Button>
       </div>
 
+      <div className="mb-4 flex justify-end">
+        <FecharHorarioBotao
+          data={data}
+          abre={horarioDoDia ? hhmm(horarioDoDia.abre) : "08:00"}
+          fecha={horarioDoDia ? hhmm(horarioDoDia.fecha) : "20:00"}
+        />
+      </div>
+
       {paraConfirmar.length > 0 && (
         <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
           <p className="flex items-center gap-2 text-sm font-semibold">
@@ -157,15 +185,18 @@ export function AgendaTela(props: DadosAgenda) {
 
       {visao === "dia" ? (
         <VisaoDia
+          ehHoje={data === hoje}
+          bloqueios={bloqueios.filter((b) => dataLocal(b.inicio) <= data && dataLocal(b.fim) >= data)}
           agendamentos={agendamentos.filter((a) => dataLocal(a.inicio) === data)}
           horario={horarios.find((h) => h.dia_semana === diaDaSemana(data))}
           onNovo={(hora) => novo(data, hora)}
           onAbrir={abrir}
         />
       ) : visao === "mes" ? (
-        <VisaoMes mes={`${data.slice(0, 7)}-01`} hoje={hoje} agendamentos={agendamentos} horarios={horarios} />
+        <VisaoMes mes={`${data.slice(0, 7)}-01`} hoje={hoje} agendamentos={agendamentos} horarios={horarios} bloqueios={bloqueios} />
       ) : (
         <VisaoSemana
+          bloqueios={bloqueios}
           de={de}
           hoje={hoje}
           agendamentos={agendamentos}
@@ -198,11 +229,15 @@ export function AgendaTela(props: DadosAgenda) {
 }
 
 function VisaoDia({
+  ehHoje,
+  bloqueios,
   agendamentos,
   horario,
   onNovo,
   onAbrir,
 }: {
+  ehHoje: boolean;
+  bloqueios: Bloqueio[];
   agendamentos: Agendamento[];
   horario: HorarioDia | undefined;
   onNovo: (hora: string) => void;
@@ -224,6 +259,17 @@ function VisaoDia({
   }, [abre, fecha, agendamentos]);
 
   const altura = (fim - ini) * PX_POR_MIN;
+  const rolagem = useRef<HTMLDivElement>(null);
+  const [agora, setAgora] = useState<number | null>(null);
+
+  // Abre já no horário que interessa: agora (hoje) ou o primeiro atendimento
+  useEffect(() => {
+    const minAgora = minutosLocal(new Date().toISOString());
+    setAgora(ehHoje ? minAgora : null);
+    const primeiro = agendamentos.find((a) => a.status !== "cancelado");
+    const alvo = ehHoje ? minAgora : primeiro ? minutosLocal(primeiro.inicio) : abre;
+    rolagem.current?.scrollTo({ top: Math.max(0, (alvo - ini - 30) * PX_POR_MIN) });
+  }, [ehHoje, agendamentos, abre, ini]);
   const horas = Array.from({ length: (fim - ini) / 60 + 1 }, (_, i) => ini + i * 60);
   const pausa =
     aberto && horario?.pausa_inicio && horario.pausa_fim
@@ -249,8 +295,11 @@ function VisaoDia({
         · {ativos.length} {ativos.length === 1 ? "atendimento" : "atendimentos"} · {formatMoeda(previsto)}
       </p>
 
-      <div className="bg-card relative overflow-hidden rounded-xl border">
-        <div className="relative ml-12" style={{ height: altura }}>
+      <div
+        ref={rolagem}
+        className="bg-card relative max-h-[60dvh] overflow-y-auto overscroll-contain rounded-xl border md:max-h-[70dvh]"
+      >
+        <div className="relative my-3 ml-12" style={{ height: altura }}>
           {/* linhas de hora */}
           {horas.map((h) => (
             <div key={h} className="absolute inset-x-0 border-t" style={{ top: (h - ini) * PX_POR_MIN }}>
@@ -274,8 +323,20 @@ function VisaoDia({
               />
             ))}
 
+          {agora !== null && agora >= ini && agora <= fim && (
+            <div className="pointer-events-none absolute inset-x-0 z-20 border-t-2 border-rose-500" style={{ top: (agora - ini) * PX_POR_MIN }}>
+              <span className="absolute -top-1.5 -left-1.5 size-3 rounded-full bg-rose-500" />
+            </div>
+          )}
+
           {/* toque num horário livre */}
           <div className="absolute inset-0 cursor-pointer" onClick={tocar} aria-label="Tocar para agendar" />
+
+          {bloqueios.map((b) => {
+            const de = Math.max(ini, minutosLocal(b.inicio));
+            const ate = Math.min(fim, minutosLocal(b.fim) || 24 * 60);
+            return <BloqueioBloco key={b.id} b={b} top={(de - ini) * PX_POR_MIN} altura={(ate - de) * PX_POR_MIN} />;
+          })}
 
           {ativos.map((a) => {
             const top = (minutosLocal(a.inicio) - ini) * PX_POR_MIN;
@@ -291,14 +352,14 @@ function VisaoDia({
                     "flex w-full flex-col overflow-hidden rounded-md border px-2 py-1 text-left shadow-xs",
                     st.classe
                   )}
-                  style={{ height: Math.max(h, 22) }}
+                  style={{ height: Math.max(h, 20) }}
                 >
                   <span className="flex items-center gap-1.5 text-xs font-semibold">
                     <span className="tabular-nums">{hhmmDeMinutos(minutosLocal(a.inicio))}</span>
                     <span className="truncate">{a.cliente_nome}</span>
                     <span className="ml-auto shrink-0 text-[10px] font-medium uppercase opacity-80">{st.rotulo}</span>
                   </span>
-                  {h >= 36 && <span className="truncate text-xs opacity-80">{descricaoItens(a.itens)}</span>}
+                  {h >= 32 && <span className="truncate text-xs opacity-80">{descricaoItens(a.itens)}</span>}
                 </button>
                 {hIntervalo > 0 && (
                   <div
@@ -337,12 +398,14 @@ function VisaoDia({
 }
 
 function VisaoSemana({
+  bloqueios,
   de,
   hoje,
   agendamentos,
   horarios,
   onAbrir,
 }: {
+  bloqueios: Bloqueio[];
   de: string;
   hoje: string;
   agendamentos: Agendamento[];
@@ -365,7 +428,10 @@ function VisaoSemana({
               <span className="text-sm font-semibold capitalize">
                 {DIAS_CURTOS[diaDaSemana(d)]} {d.slice(8)}/{d.slice(5, 7)}
               </span>
-              <span className="text-muted-foreground text-xs">{fechado ? "fechado" : `${doDia.length}`}</span>
+              <span className="text-muted-foreground text-xs">
+                {bloqueios.some((b) => dataLocal(b.inicio) <= d && dataLocal(b.fim) >= d) && "🔒 "}
+                {fechado ? "fechado" : `${doDia.length}`}
+              </span>
             </Link>
             <ul className="space-y-1">
               {doDia.map((a) => (
@@ -394,7 +460,9 @@ function VisaoMes({
   hoje,
   agendamentos,
   horarios,
+  bloqueios,
 }: {
+  bloqueios: Bloqueio[];
   mes: string;
   hoje: string;
   agendamentos: Agendamento[];
@@ -452,6 +520,9 @@ function VisaoMes({
                 >
                   {Number(d.slice(8))}
                 </span>
+                {bloqueios.some((b) => dataLocal(b.inicio) <= d && dataLocal(b.fim) >= d) && (
+                  <span className="text-[11px]" title="Horário fechado">🔒</span>
+                )}
                 {lista.length > 0 && (
                   <>
                     <span className="bg-accent text-accent-foreground w-fit rounded px-1 text-[11px] font-semibold tabular-nums">

@@ -29,7 +29,7 @@ export type Agendamento = {
 export const STATUS: Record<StatusAgendamento, { rotulo: string; classe: string }> = {
   agendado: { rotulo: "Agendado", classe: "border-amber-300 bg-amber-50 text-amber-950" },
   confirmado: { rotulo: "Confirmado", classe: "border-sky-300 bg-sky-50 text-sky-950" },
-  realizado: { rotulo: "Realizado", classe: "border-emerald-300 bg-emerald-50 text-emerald-950" },
+  realizado: { rotulo: "Concluído", classe: "border-emerald-300 bg-emerald-50 text-emerald-950" },
   faltou: { rotulo: "Faltou", classe: "border-rose-200 bg-rose-50/60 text-rose-900 opacity-70" },
   cancelado: { rotulo: "Cancelado", classe: "border-border bg-muted text-muted-foreground opacity-60" },
 };

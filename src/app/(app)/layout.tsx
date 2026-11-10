@@ -13,8 +13,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-dvh md:flex">
       {/* Menu lateral (md+) */}
       <aside className="bg-sidebar text-sidebar-foreground sticky top-0 hidden h-dvh w-64 shrink-0 flex-col p-4 md:flex">
-        <Link href="/" className="mb-10 px-2 pt-3">
-          <Logo claro />
+        <Link href="/" className="mb-10 flex justify-center px-2 pt-4" aria-label="Início">
+          <Logo variante="completa" claro className="w-40" />
         </Link>
         <SidebarNav papel={perfil.papel} />
         <div className="mt-auto border-t border-white/10 pt-3">

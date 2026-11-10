@@ -6,27 +6,30 @@ import { createClient } from "@/lib/supabase/server";
 import { formatMoeda } from "@/lib/format";
 import { FORMAS_PAGAMENTO, type TaxaPagamento } from "@/lib/configuracoes";
 import {
+  balancoMensal,
   calcularPeriodo,
   hojeISO,
   isDataISO,
   lancamentoDaLinha,
-  nomeMes,
   resumir,
   type TipoPeriodo,
 } from "@/lib/financeiro";
-import { PageHeader } from "@/components/page-header";
 import { ErroMigracao } from "@/components/erro-migracao";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Caixa } from "./caixa";
+import { BalancoMensal } from "./balanco-mensal";
+import { CategoriasSaidas } from "./categorias-saidas";
 
 export const metadata: Metadata = { title: "Financeiro" };
 
 const ABAS: { tipo: TipoPeriodo; label: string }[] = [
   { tipo: "dia", label: "Dia" },
+  { tipo: "semana", label: "Semana" },
   { tipo: "mes", label: "Mês" },
   { tipo: "ano", label: "Ano" },
+  { tipo: "total", label: "Total" },
 ];
 
 export default async function FinanceiroPage({
@@ -37,7 +40,7 @@ export default async function FinanceiroPage({
   const sp = await searchParams;
   const perfil = await getPerfil();
   const hoje = hojeISO();
-  const tipo: TipoPeriodo = sp.p === "dia" || sp.p === "ano" ? sp.p : "mes";
+  const tipo: TipoPeriodo = ABAS.some((a) => a.tipo === sp.p) ? (sp.p as TipoPeriodo) : "mes";
   const ref = isDataISO(sp.d) ? sp.d : hoje;
   const periodo = calcularPeriodo(tipo, ref);
 
@@ -63,7 +66,6 @@ export default async function FinanceiroPage({
   if (lanc.error || taxas.error) {
     return (
       <>
-        <PageHeader titulo="Financeiro" />
         <ErroMigracao arquivo="0003_lancamentos.sql" />
       </>
     );
@@ -73,29 +75,18 @@ export default async function FinanceiroPage({
   const resumo = resumir(lancamentos);
   const href = (p: TipoPeriodo, d: string) => `/financeiro?p=${p}&d=${d}`;
 
-  // Visão "Ano": totais por mês
-  const meses =
-    tipo === "ano"
-      ? Array.from({ length: 12 }, (_, i) => {
-          const m = i + 1;
-          const doMes = lancamentos.filter((l) => Number(l.data.slice(5, 7)) === m);
-          return { m, ...resumir(doMes) };
-        })
-      : [];
-
   return (
     <>
-      <PageHeader titulo="Financeiro" descricao="Entradas e saídas do studio." />
 
       {/* Período */}
       <div className="space-y-3">
-        <div className="bg-secondary/60 grid grid-cols-3 gap-1 rounded-xl p-1 sm:inline-grid sm:w-80">
+        <div className="bg-secondary/60 grid grid-cols-5 gap-1 rounded-xl p-1 sm:inline-grid sm:w-[30rem]">
           {ABAS.map((a) => (
             <Link
               key={a.tipo}
               href={href(a.tipo, ref)}
               className={cn(
-                "flex h-10 items-center justify-center rounded-lg text-sm font-medium",
+                "flex h-10 items-center justify-center rounded-lg text-xs font-medium sm:text-sm",
                 tipo === a.tipo ? "bg-card shadow-sm" : "text-muted-foreground"
               )}
             >
@@ -103,21 +94,21 @@ export default async function FinanceiroPage({
             </Link>
           ))}
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <Button asChild variant="ghost" size="icon" aria-label="Período anterior">
+        <div className={cn("flex items-center justify-between gap-2", tipo === "total" && "justify-center")}>
+          <Button asChild variant="ghost" size="icon" aria-label="Período anterior" className={cn(tipo === "total" && "hidden")}>
             <Link href={href(tipo, periodo.anterior)}>
               <ChevronLeft className="size-5" />
             </Link>
           </Button>
           <div className="text-center">
             <p className="font-serif text-2xl font-semibold first-letter:uppercase">{periodo.titulo}</p>
-            {!(periodo.de <= hoje && hoje <= periodo.ate) && (
+            {tipo !== "total" && !(periodo.de <= hoje && hoje <= periodo.ate) && (
               <Link href={href(tipo, hoje)} className="text-primary text-xs font-medium">
                 voltar para hoje
               </Link>
             )}
           </div>
-          <Button asChild variant="ghost" size="icon" aria-label="Próximo período">
+          <Button asChild variant="ghost" size="icon" aria-label="Próximo período" className={cn(tipo === "total" && "hidden")}>
             <Link href={href(tipo, periodo.proximo)}>
               <ChevronRight className="size-5" />
             </Link>
@@ -133,7 +124,21 @@ export default async function FinanceiroPage({
           valor={resumo.entradasLiquido}
           detalhe={`taxas ${formatMoeda(resumo.taxas)}`}
         />
-        <Indicador titulo="Saídas" valor={resumo.saidas} cor="saida" />
+        <Indicador
+          titulo="Saídas"
+          valor={resumo.saidas}
+          cor="saida"
+          detalhe={
+            resumo.saidasInvestimento || resumo.saidasCaucao
+              ? [
+                  resumo.saidasInvestimento ? `abertura ${formatMoeda(resumo.saidasInvestimento)}` : "",
+                  resumo.saidasCaucao ? `caução ${formatMoeda(resumo.saidasCaucao)}` : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : undefined
+          }
+        />
         <Indicador
           titulo="Saldo"
           valor={resumo.saldo}
@@ -171,8 +176,10 @@ export default async function FinanceiroPage({
         </Card>
       )}
 
+      <CategoriasSaidas lancamentos={lancamentos} />
+
       <div className="mt-6 mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold">{tipo === "ano" ? "Mês a mês" : "Lançamentos"}</h2>
+        <h2 className="text-2xl font-semibold">{tipo === "ano" || tipo === "total" ? "Resumo" : "Lançamentos"}</h2>
         <Button asChild variant="outline">
           <a href={`/financeiro/exportar?p=${tipo}&d=${ref}`}>
             <Download />
@@ -181,48 +188,12 @@ export default async function FinanceiroPage({
         </Button>
       </div>
 
-      {tipo === "ano" && (
-        <div className="bg-card overflow-hidden rounded-xl border">
-          <table className="w-full text-sm">
-            <thead className="bg-secondary/50 text-muted-foreground text-xs">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium">Mês</th>
-                <th className="px-2 py-2 text-right font-medium">Líquido</th>
-                <th className="px-2 py-2 text-right font-medium">Saídas</th>
-                <th className="px-4 py-2 text-right font-medium">Saldo</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {meses.map((m) => (
-                <tr key={m.m}>
-                  <td className="px-4 py-2.5">
-                    <Link
-                      href={href("mes", `${ref.slice(0, 4)}-${String(m.m).padStart(2, "0")}-01`)}
-                      className="font-medium capitalize hover:underline"
-                    >
-                      {nomeMes(m.m)}
-                    </Link>
-                  </td>
-                  <td className="px-2 py-2.5 text-right">{formatMoeda(m.entradasLiquido)}</td>
-                  <td className="px-2 py-2.5 text-right">{formatMoeda(m.saidas)}</td>
-                  <td
-                    className={cn(
-                      "px-4 py-2.5 text-right font-medium",
-                      m.saldo < 0 ? "text-rose-700" : m.saldo > 0 ? "text-emerald-700" : ""
-                    )}
-                  >
-                    {formatMoeda(m.saldo)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {(tipo === "ano" || tipo === "total") && <BalancoMensal linhas={balancoMensal(lancamentos)} />}
 
       <Caixa
         lancamentos={lancamentos}
-        mostrarLista={tipo !== "ano"}
+        mostrarLista={tipo !== "ano" && tipo !== "total"}
+        semBotao
         meuId={perfil.id}
         admin={isAdmin(perfil)}
         dados={{

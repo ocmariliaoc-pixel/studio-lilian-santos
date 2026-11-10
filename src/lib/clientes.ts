@@ -11,6 +11,7 @@ export type ClienteResumo = {
   status: StatusCliente;
   motivo_perda: string | null;
   proximo_agendamento: string | null;
+  criado_em: string;
   ultima_visita: string | null;
   servicos_ultima_visita: string | null;
   ultimo_pagamento_em: string | null;
