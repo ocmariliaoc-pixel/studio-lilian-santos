@@ -16,7 +16,7 @@ import { cupomValido, pendenteAgora, type Acompanhamento, type Cupom } from "@/l
 import { somarDias } from "@/lib/agenda";
 import { StatusCampos } from "./status-campos";
 
-type Ordem = "visita" | "gasto" | "novo" | "antigo";
+type Ordem = "gasto" | "recente" | "sumida";
 type Filtro = "todos" | "lead" | "ganho" | "perdido" | "aniversario" | "mensagens" | "desconto";
 
 type Extras = { acomp: Map<string, Acompanhamento[]>; cupons: Map<string, Cupom[]> };
@@ -64,9 +64,9 @@ const COR_FAIXA: Record<string, string> = {
 
 const ORDENS: { v: Ordem; rotulo: string }[] = [
   { v: "gasto", rotulo: "Quem mais gasta" },
-  { v: "visita", rotulo: "Última visita" },
-  { v: "novo", rotulo: "Mais novo" },
-  { v: "antigo", rotulo: "Mais antigo" },
+  // Pela data do ÚLTIMO atendimento (não pela data do cadastro)
+  { v: "recente", rotulo: "Veio por último" },
+  { v: "sumida", rotulo: "Sem vir há mais tempo" },
 ];
 
 export function ClientesLista({
@@ -112,9 +112,10 @@ export function ClientesLista({
       .sort((a, b) => {
         const nome = a.nome.localeCompare(b.nome, "pt-BR");
         if (ordem === "gasto") return b.total_gasto - a.total_gasto || nome;
-        if (ordem === "visita") return (b.ultima_visita ?? "").localeCompare(a.ultima_visita ?? "") || nome;
-        if (ordem === "novo") return b.criado_em.localeCompare(a.criado_em) || nome;
-        return a.criado_em.localeCompare(b.criado_em) || nome;
+        // Quem nunca foi atendida (lead) fica no fim das duas ordens
+        if (!a.ultima_visita || !b.ultima_visita) return Number(!a.ultima_visita) - Number(!b.ultima_visita) || nome;
+        if (ordem === "recente") return b.ultima_visita.localeCompare(a.ultima_visita) || nome;
+        return a.ultima_visita.localeCompare(b.ultima_visita) || nome;
       });
   }, [clientes, busca, ordem, filtro, hoje, extras]);
 
@@ -162,7 +163,7 @@ export function ClientesLista({
             className="pl-9"
           />
         </div>
-        <div className="bg-secondary/60 grid grid-cols-4 gap-1 rounded-xl p-1 sm:w-[30rem]">
+        <div className="bg-secondary/60 grid grid-cols-3 gap-1 rounded-xl p-1 sm:w-[30rem]">
           {ORDENS.map(({ v, rotulo }) => (
             <button
               key={v}
