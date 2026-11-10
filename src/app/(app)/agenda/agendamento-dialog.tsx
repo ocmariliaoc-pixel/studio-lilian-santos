@@ -5,6 +5,7 @@ import { Ban, CalendarCheck, Check, Loader2, MessageCircle, RotateCcw, UserX, X 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CampoData, CampoHora } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -324,11 +325,11 @@ function AgendamentoForm({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label htmlFor="data">Data</Label>
-            <Input id="data" name="data" type="date" defaultValue={a ? dataLocal(a.inicio) : novoEm.data} required />
+            <CampoData id="data" name="data" defaultValue={a ? dataLocal(a.inicio) : novoEm.data} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="hora">Horário</Label>
-            <Input id="hora" name="hora" type="time" step={300} value={hora} onChange={(e) => setHora(e.target.value)} required />
+            <CampoHora id="hora" name="hora" value={hora} onChange={setHora} required />
           </div>
         </div>
 

@@ -5,6 +5,7 @@ import { Check, Loader2, Pencil, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CampoData } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
@@ -191,7 +192,7 @@ function FormPagar({ item, hoje, onFeito }: { item: ContaDoMes; hoje: string; on
         </div>
         <div className="space-y-2">
           <Label htmlFor="data-pagar">Data do pagamento</Label>
-          <Input id="data-pagar" name="data" type="date" defaultValue={hoje} required />
+          <CampoData id="data-pagar" name="data" defaultValue={hoje} required />
         </div>
       </div>
       <div className="space-y-2">

@@ -5,6 +5,7 @@ import { ArrowDownLeft, ArrowUpRight, Loader2, RotateCcw, Ban, UserPlus, X } fro
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CampoData } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -370,14 +371,9 @@ function LancamentoForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="data">Data</Label>
-            <Input
-              id="data"
-              name="data"
-              type="date"
-              defaultValue={lancamento?.data ?? dados.hoje}
-              className="h-12 w-40"
-              required
-            />
+            <div className="w-40">
+              <CampoData id="data" name="data" defaultValue={lancamento?.data ?? dados.hoje} className="h-12" required />
+            </div>
           </div>
         </div>
         {valorTabela != null && (

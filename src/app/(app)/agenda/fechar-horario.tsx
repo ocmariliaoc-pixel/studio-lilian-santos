@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { Loader2, Lock, LockOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { CampoData, CampoHora } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -88,7 +88,7 @@ function Formulario({ data, abre, fecha, onFeito }: { data: string; abre: string
       <input type="hidden" name="ate" value={ate} />
       <div className="space-y-2">
         <Label htmlFor="data-bloqueio">Dia</Label>
-        <Input id="data-bloqueio" name="data" type="date" defaultValue={data} required />
+        <CampoData id="data-bloqueio" name="data" defaultValue={data} required />
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {(
@@ -116,11 +116,11 @@ function Formulario({ data, abre, fecha, onFeito }: { data: string; abre: string
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>De</Label>
-            <Input type="time" step={300} value={de} onChange={(e) => setDe(e.target.value)} required />
+            <CampoHora aria-label="De" value={de} onChange={setDe} required />
           </div>
           <div className="space-y-2">
             <Label>Até</Label>
-            <Input type="time" step={300} value={ate} onChange={(e) => setAte(e.target.value)} required />
+            <CampoHora aria-label="Até" value={ate} onChange={setAte} required />
           </div>
         </div>
       ) : (

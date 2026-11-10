@@ -11,9 +11,11 @@ import { PageHeader } from "@/components/page-header";
 import { ErroMigracao } from "@/components/erro-migracao";
 import { SomenteLeitura } from "@/components/somente-leitura";
 import { Button } from "@/components/ui/button";
+import { cookies } from "next/headers";
 import { MetaForm } from "./meta-form";
+import { DiasBotoes } from "./dias-botoes";
 import { MetaGrafico, type PontoMeta } from "./meta-grafico";
-import { diasAbertos } from "@/lib/metas";
+import { diasAbertos, ESCALAS, type Escala } from "@/lib/metas";
 
 export const metadata: Metadata = { title: "Metas" };
 
@@ -22,16 +24,19 @@ function mesAnteriorOuProximo(mes: string, delta: number) {
   return new Date(Date.UTC(a, m - 1 + delta, 1)).toISOString().slice(0, 10);
 }
 
-export default async function MetasPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
+export default async function MetasPage({ searchParams }: { searchParams: Promise<{ m?: string; dias?: string }> }) {
   const sp = await searchParams;
   const perfil = await getPerfil();
   const hoje = hojeISO();
   const mes = sp.m && /^\d{4}-\d{2}$/.test(sp.m) ? `${sp.m}-01` : `${hoje.slice(0, 7)}-01`;
   const fim = ultimoDiaDoMes(mes);
   const semanaDe = inicioSemana(hoje);
+  // Terça a sábado (padrão) ou terça a domingo: botões no topo; a escolha fica num cookie
+  const doCookie = (await cookies()).get("metas_dias")?.value;
+  const escala: Escala = sp.dias && sp.dias in ESCALAS ? (sp.dias as Escala) : doCookie && doCookie in ESCALAS ? (doCookie as Escala) : "ter-sab";
 
   const supabase = await createClient();
-  const [meta, doMes, recentes, horarios, daSemana, contasFixas] = await Promise.all([
+  const [meta, doMes, recentes, daSemana, contasFixas] = await Promise.all([
     supabase.from("metas").select("*").lte("mes", mes).order("mes", { ascending: false }).limit(1).maybeSingle(),
     supabase
       .from("lancamentos")
@@ -47,7 +52,6 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
       .eq("cancelado", false)
       .gt("valor", 0)
       .gte("data", somarDias(hoje, -90)),
-    supabase.from("horarios_funcionamento").select("dia_semana, aberto"),
     supabase
       .from("lancamentos")
       .select("valor")
@@ -89,7 +93,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   const brutoRec = rec.reduce((s, l) => s + Number(l.valor), 0);
   const liqRec = rec.reduce((s, l) => s + Number(l.valor_liquido), 0);
   const servicosRec = rec.filter((l) => l.categoria === "Serviço");
-  const abertos = Array.from({ length: 7 }, (_, d) => !!horarios.data?.find((h) => h.dia_semana === d)?.aberto);
+  const abertos = Array.from({ length: 7 }, (_, d) => (ESCALAS[escala].dias as readonly number[]).includes(d));
   const entradasMes = doMes.data ?? [];
 
   const r = calcularMeta(parametros, {
@@ -139,15 +143,17 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
         )}
       </PageHeader>
 
+      <DiasBotoes escala={escala} mes={mes} />
+
       <div className="mb-5 flex items-center justify-between">
         <Button asChild variant="ghost" size="icon" aria-label="Mês anterior">
-          <Link href={`/metas?m=${mesAnteriorOuProximo(mes, -1).slice(0, 7)}`}>
+          <Link href={`/metas?m=${mesAnteriorOuProximo(mes, -1).slice(0, 7)}&dias=${escala}`}>
             <ChevronLeft className="size-5" />
           </Link>
         </Button>
         <p className="text-2xl font-semibold first-letter:uppercase">{titulo}</p>
         <Button asChild variant="ghost" size="icon" aria-label="Próximo mês">
-          <Link href={`/metas?m=${mesAnteriorOuProximo(mes, 1).slice(0, 7)}`}>
+          <Link href={`/metas?m=${mesAnteriorOuProximo(mes, 1).slice(0, 7)}&dias=${escala}`}>
             <ChevronRight className="size-5" />
           </Link>
         </Button>
@@ -203,7 +209,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
           </div>
           {ehMesAtual && r.falta > 0 && r.diasRestantes > 0 && (
             <p className="bg-secondary/60 mt-3 rounded-md px-3 py-2 text-sm">
-              Para bater: <b>{formatMoeda(r.faltaPorDia)} por dia</b> nos {r.diasRestantes} dias que restam · ≈{" "}
+              Para bater: <b>{formatMoeda(r.faltaPorDia)} por dia</b> nos {r.diasRestantes} dias de atendimento que restam · ≈{" "}
               {r.atendimentosFaltam} atendimentos
             </p>
           )}
@@ -216,7 +222,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
 
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Indicador titulo="Por semana" valor={formatMoeda(r.metaSemana)} detalhe={ehMesAtual ? `esta semana: ${formatMoeda(semana)}` : undefined} />
-        <Indicador titulo="Por dia de atendimento" valor={formatMoeda(r.metaDia)} detalhe={`${r.diasAtendimento} dias abertos no mês`} />
+        <Indicador titulo="Por dia de atendimento" valor={formatMoeda(r.metaDia)} detalhe={`${r.diasAtendimento} dias (${ESCALAS[escala].rotulo.toLowerCase()})`} />
         <Indicador titulo="Atendimentos no mês" valor={String(r.atendimentosMes)} detalhe={`${atendidos} feitos · ≈ ${r.atendimentosSemana}/semana · ${String(r.atendimentosDia).replace(".", ",")}/dia`} />
         <Indicador
           titulo="Ticket médio"

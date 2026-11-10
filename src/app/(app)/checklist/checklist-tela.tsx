@@ -5,6 +5,7 @@ import { Check, Loader2, Plus, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CampoData } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -449,7 +450,7 @@ function TarefaForm({
               <Label htmlFor="prazo" className="shrink-0 font-normal">
                 Até
               </Label>
-              <Input id="prazo" name="prazo" type="date" defaultValue={tarefa?.prazo ?? hoje} className="h-11" />
+              <div className="flex-1"><CampoData id="prazo" name="prazo" defaultValue={tarefa?.prazo ?? hoje} /></div>
             </div>
           )}
           {recorrencia === "semanal" && (
