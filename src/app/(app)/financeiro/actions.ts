@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { acharOuCriarCliente } from "@/lib/clientes-server";
 import { FORMAS_PAGAMENTO, parseNumeroBR, type FormaPagamento } from "@/lib/configuracoes";
 import { isDataISO } from "@/lib/financeiro";
+import { normalizarTelefone } from "@/lib/clientes";
 import { falha, mensagemErroBanco, sucesso, type AcaoState } from "@/lib/acoes";
 
 export async function salvarLancamento(_: AcaoState, formData: FormData): Promise<AcaoState> {
@@ -23,11 +24,14 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
   const parcelas = Number(formData.get("parcelas") ?? 1);
   const produtoTexto = String(formData.get("produto_id") ?? "");
   const quantidade = Number(formData.get("quantidade") ?? 1);
+  const whatsapp = normalizarTelefone(String(formData.get("cliente_whatsapp") ?? "")) || null;
 
   if (tipo !== "entrada" && tipo !== "saida") return falha("Escolha entrada ou saída.");
   if (!isDataISO(data)) return falha("Data inválida.");
   if (valor == null || valor < 0) return falha("Valor inválido. Exemplo: 55,00");
   if (!descricao) return falha("Descreva o lançamento. Ex.: Design + buço");
+  if (whatsapp && (whatsapp.length < 10 || whatsapp.length > 11))
+    return falha("WhatsApp com DDD, ex.: (85) 99999-8888");
 
   let forma: FormaPagamento | null = null;
   if (tipo === "entrada" && valor > 0) {
@@ -62,6 +66,9 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
   // Liga (ou cadastra) a cliente pelo nome. Se a tabela ainda não existir, segue só com o nome.
   const clienteId = dados.cliente_nome ? await acharOuCriarCliente(supabase, dados.cliente_nome) : null;
   const registro = clienteId ? { ...dados, cliente_id: clienteId } : dados;
+  // Nova cliente: guarda o WhatsApp (sem apagar um número que já estava salvo)
+  if (clienteId && whatsapp)
+    await supabase.from("clientes").update({ whatsapp }).eq("id", clienteId).is("whatsapp", null);
 
   const { error, count } = id
     ? await supabase.from("lancamentos").update(registro, { count: "exact" }).eq("id", id)

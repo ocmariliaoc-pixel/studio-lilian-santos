@@ -55,7 +55,7 @@ export function MetaGrafico({ pontos, metaMes }: { pontos: PontoMeta[]; metaMes:
             <g key={t}>
               <line x1={m.l} x2={W - m.r} y1={y(t)} y2={y(t)} stroke="currentColor" className="text-border" strokeWidth={1} />
               <text x={m.l - 8} y={y(t) + 4} textAnchor="end" className="fill-muted-foreground text-[11px]">
-                {t >= 1000 ? `${Math.round(t / 100) / 10}k` : t}
+                {t >= 1000 ? `${String(Math.round(t / 100) / 10).replace(".", ",")} mil` : t}
               </text>
             </g>
           ))}

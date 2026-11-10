@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Cake, Check, Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
+import { CampoData } from "@/components/ui/campo-data";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
   diasAteAniversario,
@@ -68,15 +68,14 @@ export function StatusCampos({ c, hoje }: { c: ClienteResumo; hoje: string }) {
         </label>
         <label className="space-y-1">
           <span className="text-muted-foreground text-xs font-medium">Nascimento</span>
-          <Input
-            type="date"
+          <CampoData
             value={nascimento}
             max={hoje}
             className="h-9 text-sm"
-            onChange={(e) => setNascimento(e.target.value)}
-            onBlur={(e) => {
-              if ((e.target.value || "") === (c.data_nascimento ?? "")) return;
-              salvar("data_nascimento", e.target.value, () => setNascimento(c.data_nascimento ?? ""));
+            onChange={setNascimento}
+            onCommit={(iso) => {
+              if ((iso || "") === (c.data_nascimento ?? "")) return;
+              salvar("data_nascimento", iso, () => setNascimento(c.data_nascimento ?? ""));
             }}
           />
         </label>

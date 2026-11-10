@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { ArrowDownLeft, ArrowUpRight, Loader2, RotateCcw, Ban } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Loader2, RotateCcw, Ban, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CampoData } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -43,9 +44,13 @@ export type ProdutoCaixa = {
   controla_estoque: boolean;
 };
 
+export type ServicoCaixa = { nome: string; preco: number };
+
 export type DadosFormulario = {
   taxas: TaxaPagamento[];
   sugestoes: string[];
+  /** Serviços ativos com o preço da tabela (escolher no caixa preenche descrição e valor) */
+  servicos?: ServicoCaixa[];
   produtos: ProdutoCaixa[];
   clientes: string[];
   hoje: string;
@@ -117,6 +122,11 @@ function LancamentoForm({
   const [descricao, setDescricao] = useState(lancamento?.descricao ?? "");
   const [produtoId, setProdutoId] = useState(lancamento?.produto_id ?? "");
   const [quantidade, setQuantidade] = useState(lancamento?.quantidade ?? 1);
+  const [servicosEscolhidos, setServicosEscolhidos] = useState<string[]>([]);
+  // Valor vem da tabela; "Valor diferenciado" libera para digitar (desconto, cortesia, preço combinado).
+  const [valorDiferenciado, setValorDiferenciado] = useState(!!lancamento);
+  const [clienteNova, setClienteNova] = useState(false);
+  const [clienteNome, setClienteNome] = useState(lancamento?.cliente_nome ?? "");
   const bloqueado = !podeEditar || lancamento?.cancelado;
 
   useEffect(() => {
@@ -151,8 +161,21 @@ function LancamentoForm({
     vendeCurso ? p.categoria === "Cursos" : p.categoria !== "Cursos"
   );
   const produtoEscolhido = opcoesProduto.find((p) => p.id === produtoId);
+  const vendeServico = tipo === "entrada" && categoria === "Serviço";
+  const tabelaServicos = dados.servicos ?? [];
+  const precoServicos = (nomes: string[]) =>
+    nomes.reduce((t, n) => t + (tabelaServicos.find((x) => x.nome === n)?.preco ?? 0), 0);
+  // Preço de tabela do que foi escolhido (produto × quantidade ou soma dos serviços)
+  const valorTabela = vendeProduto
+    ? produtoEscolhido
+      ? produtoEscolhido.preco * quantidade
+      : null
+    : vendeServico && servicosEscolhidos.length > 0
+      ? precoServicos(servicosEscolhidos)
+      : null;
+  const valorTravado = valorTabela != null && !valorDiferenciado;
   // Repasse da taxa: a cliente paga o juro da maquininha e o studio recebe o preço cheio.
-  const base = produtoEscolhido ? produtoEscolhido.preco * quantidade : 0;
+  const base = valorTabela ?? 0;
   const valorComRepasse = taxa > 0 && base > 0 ? Math.ceil((base / (1 - taxa / 100)) * 100) / 100 : 0;
   const repassando = valorComRepasse > 0 && Math.abs(valor - valorComRepasse) < 0.005;
 
@@ -161,8 +184,23 @@ function LancamentoForm({
     const p = dados.produtos.find((x) => x.id === id);
     if (!p) return;
     setDescricao(qtd > 1 ? `${qtd}x ${p.nome}` : p.nome);
-    setValorTexto(numeroParaCampo(p.preco * qtd));
+    if (!valorDiferenciado) setValorTexto(numeroParaCampo(p.preco * qtd));
   }
+
+  function mudarServicos(nomes: string[]) {
+    setServicosEscolhidos(nomes);
+    setDescricao(nomes.join(" + "));
+    if (!valorDiferenciado || nomes.length === 0) setValorTexto(nomes.length ? numeroParaCampo(precoServicos(nomes)) : "");
+  }
+
+  function alternarDiferenciado(marcado: boolean) {
+    setValorDiferenciado(marcado);
+    if (!marcado && valorTabela != null) setValorTexto(numeroParaCampo(valorTabela));
+  }
+
+  const nomeJaExiste =
+    clienteNova && clienteNome.trim() !== "" &&
+    dados.clientes.some((c) => c.toLowerCase() === clienteNome.trim().toLowerCase());
 
   function mudarQuantidade(qtd: number) {
     const q = Math.max(1, qtd);
@@ -173,6 +211,8 @@ function LancamentoForm({
   function trocarTipo(t: TipoLancamento) {
     setTipo(t);
     setCategoria(t === "entrada" ? "Serviço" : "Outros");
+    setServicosEscolhidos([]);
+    setProdutoId("");
   }
 
   function cancelar(valorCancelado: boolean) {
@@ -273,6 +313,42 @@ function LancamentoForm({
             )}
           </div>
         )}
+        {vendeServico && !lancamento && tabelaServicos.length > 0 && (
+          <div className="bg-secondary/40 space-y-3 rounded-lg p-3">
+            <div className="space-y-2">
+              <Label htmlFor="servico">Serviços feitos</Label>
+              <NativeSelect
+                id="servico"
+                value=""
+                onChange={(e) => e.target.value && mudarServicos([...servicosEscolhidos, e.target.value])}
+              >
+                <option value="">{servicosEscolhidos.length ? "Adicionar outro serviço…" : "Escolha o serviço…"}</option>
+                {tabelaServicos.map((s) => (
+                  <option key={s.nome} value={s.nome}>
+                    {s.nome} · {formatMoeda(s.preco)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            {servicosEscolhidos.length > 0 && (
+              <ul className="flex flex-wrap gap-2">
+                {servicosEscolhidos.map((n, i) => (
+                  <li key={`${n}-${i}`}>
+                    <button
+                      type="button"
+                      onClick={() => mudarServicos(servicosEscolhidos.filter((_, j) => j !== i))}
+                      className="bg-card inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm"
+                      aria-label={`Tirar ${n}`}
+                    >
+                      {n}
+                      <X className="text-muted-foreground size-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <div className="space-y-2">
             <Label htmlFor="valor">Valor</Label>
@@ -286,24 +362,34 @@ function LancamentoForm({
                 inputMode="decimal"
                 value={valorTexto}
                 onChange={(e) => setValorTexto(e.target.value)}
+                readOnly={valorTravado}
                 placeholder="0,00"
-                className="h-12 pl-9 text-lg font-semibold"
+                className={cn("h-12 pl-9 text-lg font-semibold", valorTravado && "bg-secondary/60")}
                 required
               />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="data">Data</Label>
-            <Input
-              id="data"
-              name="data"
-              type="date"
-              defaultValue={lancamento?.data ?? dados.hoje}
-              className="h-12 w-40"
-              required
-            />
+            <div className="w-40">
+              <CampoData id="data" name="data" defaultValue={lancamento?.data ?? dados.hoje} className="h-12" required />
+            </div>
           </div>
         </div>
+        {valorTabela != null && (
+          <label className="-mt-2 flex min-h-10 cursor-pointer items-center gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={valorDiferenciado}
+              onChange={(e) => alternarDiferenciado(e.target.checked)}
+              className="accent-primary size-5"
+            />
+            <span>
+              Valor diferenciado
+              <span className="text-muted-foreground"> · tabela {formatMoeda(valorTabela)}</span>
+            </span>
+          </label>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="descricao">Descrição</Label>
@@ -326,23 +412,57 @@ function LancamentoForm({
 
         {tipo === "entrada" && (
           <div className="space-y-2">
-            <Label htmlFor="cliente_nome">Cliente</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="cliente_nome">{clienteNova ? "Nova cliente" : "Cliente"}</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-gold-dark h-8"
+                onClick={() => setClienteNova(!clienteNova)}
+              >
+                {clienteNova ? "Escolher da lista" : <><UserPlus /> Nova cliente</>}
+              </Button>
+            </div>
             <Input
               id="cliente_nome"
               name="cliente_nome"
-              defaultValue={lancamento?.cliente_nome ?? ""}
-              placeholder="Nome da cliente (opcional)"
-              list="lista-clientes"
+              value={clienteNome}
+              onChange={(e) => setClienteNome(e.target.value)}
+              placeholder={clienteNova ? "Nome completo" : "Nome da cliente (opcional)"}
+              list={clienteNova ? undefined : "lista-clientes"}
               autoComplete="off"
+              required={clienteNova}
             />
             <datalist id="lista-clientes">
               {dados.clientes.map((c) => (
                 <option key={c} value={c} />
               ))}
             </datalist>
-            <p className="text-muted-foreground text-xs">
-              Use o mesmo nome de sempre: o lançamento vai para o histórico dela em Clientes.
-            </p>
+            {clienteNova ? (
+              <>
+                <Input
+                  name="cliente_whatsapp"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="WhatsApp com DDD, ex.: (85) 99999-8888"
+                  autoComplete="off"
+                />
+                {nomeJaExiste ? (
+                  <p className="text-xs text-amber-800">
+                    Já existe uma cliente com esse nome: o lançamento vai para a ficha dela.
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    A cliente é cadastrada em Clientes ao registrar.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                Use o mesmo nome de sempre: o lançamento vai para o histórico dela em Clientes.
+              </p>
+            )}
           </div>
         )}
 

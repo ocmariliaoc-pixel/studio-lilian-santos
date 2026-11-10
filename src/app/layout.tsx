@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cinzel, Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { ValidacaoPtBR } from "@/components/validacao-ptbr";
 import "./globals.css";
 
 const sans = Inter({ variable: "--font-sans", subsets: ["latin"] });
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={`${sans.variable} ${brand.variable}`}>
         {children}
         <Toaster />
+        <ValidacaoPtBR />
       </body>
     </html>
   );

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CampoHora } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
@@ -108,23 +109,11 @@ export function HorariosForm({
                   <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] gap-2 sm:gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-muted-foreground text-xs">Abre</Label>
-                      <Input
-                        type="time"
-                        step={300}
-                        value={d.abre}
-                        onChange={(e) => alterar(d.dia_semana, { abre: e.target.value })}
-                        required
-                      />
+                      <CampoHora compacto value={d.abre} onChange={(v) => alterar(d.dia_semana, { abre: v })} required />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-muted-foreground text-xs">Fecha</Label>
-                      <Input
-                        type="time"
-                        step={300}
-                        value={d.fecha}
-                        onChange={(e) => alterar(d.dia_semana, { fecha: e.target.value })}
-                        required
-                      />
+                      <CampoHora compacto value={d.fecha} onChange={(v) => alterar(d.dia_semana, { fecha: v })} required />
                     </div>
                   </div>
 
@@ -132,23 +121,11 @@ export function HorariosForm({
                     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-end gap-2 sm:gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-muted-foreground text-xs">Pausa de</Label>
-                        <Input
-                          type="time"
-                          step={300}
-                          value={d.pausa_inicio ?? ""}
-                          onChange={(e) => alterar(d.dia_semana, { pausa_inicio: e.target.value })}
-                          required
-                        />
+                        <CampoHora compacto value={d.pausa_inicio ?? ""} onChange={(v) => alterar(d.dia_semana, { pausa_inicio: v })} required />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-muted-foreground text-xs">até</Label>
-                        <Input
-                          type="time"
-                          step={300}
-                          value={d.pausa_fim ?? ""}
-                          onChange={(e) => alterar(d.dia_semana, { pausa_fim: e.target.value })}
-                          required
-                        />
+                        <CampoHora compacto value={d.pausa_fim ?? ""} onChange={(v) => alterar(d.dia_semana, { pausa_fim: v })} required />
                       </div>
                       <Button
                         type="button"

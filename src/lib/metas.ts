@@ -79,3 +79,10 @@ export function calcularMeta(p: ParametrosMeta, ctx: ContextoMes) {
     atendimentosFaltam: Math.max(0, atendimentosMes - ctx.atendimentosMes),
   };
 }
+
+/** Dias que contam como "dia de atendimento" na meta (botões na tela de Metas). 0 = domingo. */
+export const ESCALAS = {
+  "ter-sab": { rotulo: "Terça a sábado", dias: [2, 3, 4, 5, 6] },
+  "ter-dom": { rotulo: "Terça a domingo", dias: [0, 2, 3, 4, 5, 6] },
+} as const;
+export type Escala = keyof typeof ESCALAS;
