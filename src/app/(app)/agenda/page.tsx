@@ -21,7 +21,8 @@ export default async function AgendaPage({
   const sp = await searchParams;
   const hoje = hojeISO();
   const data = isDataISO(sp.d) ? sp.d : hoje;
-  const visao = sp.v === "semana" ? "semana" : sp.v === "mes" ? "mes" : "dia";
+  // Abre na semana; Dia e Mês pelos botões (?v=dia / ?v=mes)
+  const visao = sp.v === "dia" ? "dia" : sp.v === "mes" ? "mes" : "semana";
 
   const inicioMes = `${data.slice(0, 7)}-01`;
   const fimMes = ultimoDiaDoMes(inicioMes);
