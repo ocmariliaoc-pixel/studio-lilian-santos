@@ -20,6 +20,7 @@ import {
 import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { salvarHorarios } from "./actions";
+import { semResetar } from "@/lib/form";
 
 const INTERVALOS = [0, 5, 10, 15, 20, 30, 45, 60];
 
@@ -76,7 +77,7 @@ export function HorariosForm({
     : [...INTERVALOS, config.intervalo_min].sort((a, b) => a - b);
 
   return (
-    <form action={action} className="space-y-6">
+    <form onSubmit={semResetar(action)} className="space-y-6">
       <input type="hidden" name="dias" value={JSON.stringify(dias)} />
 
       <Card className="gap-4">

@@ -18,6 +18,7 @@ import { numeroParaCampo } from "@/lib/configuracoes";
 import type { ParametrosMeta } from "@/lib/metas";
 import type { AcaoState } from "@/lib/acoes";
 import { salvarMeta } from "./actions";
+import { semResetar } from "@/lib/form";
 
 type Linha = { nome: string; valor: string };
 
@@ -101,7 +102,7 @@ function Formulario({ parametros: p, onSalvo }: { parametros: ParametrosMeta; on
   }, [state.em]);
 
   return (
-    <form action={action} className="space-y-5">
+    <form onSubmit={semResetar(action)} className="space-y-5">
       <input type="hidden" name="mes" value={p.mes} />
       <input type="hidden" name="custos" value={JSON.stringify(custos)} />
       <input type="hidden" name="pessoas" value={JSON.stringify(pessoas)} />

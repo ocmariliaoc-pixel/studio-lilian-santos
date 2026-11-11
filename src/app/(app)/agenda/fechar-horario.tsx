@@ -18,6 +18,7 @@ import {
 import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { fecharHorario, reabrirHorario } from "./actions";
+import { semResetar } from "@/lib/form";
 
 export type Bloqueio = { id: string; inicio: string; fim: string; motivo: string };
 
@@ -83,7 +84,7 @@ function Formulario({ data, abre, fecha, onFeito }: { data: string; abre: string
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={semResetar(action)} className="space-y-4">
       <input type="hidden" name="de" value={de} />
       <input type="hidden" name="ate" value={ate} />
       <div className="space-y-2">

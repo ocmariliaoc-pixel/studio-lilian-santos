@@ -35,6 +35,7 @@ import {
 import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { alternarCancelamento, salvarLancamento } from "./actions";
+import { semResetar } from "@/lib/form";
 
 export type ProdutoCaixa = {
   id: string;
@@ -222,7 +223,7 @@ function LancamentoForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={semResetar(action)} className="space-y-4">
       {lancamento && <input type="hidden" name="id" value={lancamento.id} />}
       <input type="hidden" name="tipo" value={tipo} />
       <input type="hidden" name="forma_pagamento" value={tipo === "entrada" ? forma : ""} />

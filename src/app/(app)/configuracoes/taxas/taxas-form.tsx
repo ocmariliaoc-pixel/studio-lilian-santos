@@ -19,6 +19,7 @@ import {
 import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { salvarTaxas } from "./actions";
+import { semResetar } from "@/lib/form";
 
 type Linha = TaxaPagamento & { texto: string };
 
@@ -98,7 +99,7 @@ export function TaxasForm({ taxas }: { taxas: TaxaPagamento[] }) {
   }
 
   return (
-    <form action={action} className="space-y-6">
+    <form onSubmit={semResetar(action)} className="space-y-6">
       <input type="hidden" name="taxas" value={JSON.stringify(payload)} />
 
       <Card className="gap-4">

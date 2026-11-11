@@ -9,6 +9,7 @@ import { dataBR } from "@/lib/financeiro";
 import { ehRepasseCartao } from "@/lib/extrato-ton";
 import { cn } from "@/lib/utils";
 import { ignorarMovimento, importarExtrato, lancarDoExtrato, type ImportacaoState } from "./actions";
+import { semResetar } from "@/lib/form";
 
 export type Movimento = {
   id: string;
@@ -26,7 +27,7 @@ export function UploadExtrato() {
   const [state, action, pending] = useActionState<ImportacaoState, FormData>(importarExtrato, {});
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
   return (
-    <form action={action} className="bg-card space-y-3 rounded-xl border p-4">
+    <form onSubmit={semResetar(action)} className="bg-card space-y-3 rounded-xl border p-4">
       <div className="flex items-start gap-3">
         <FileUp className="text-gold-dark mt-0.5 size-5 shrink-0" />
         <div className="text-sm">

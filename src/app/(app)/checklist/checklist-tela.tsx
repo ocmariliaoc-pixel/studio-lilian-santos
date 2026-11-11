@@ -23,6 +23,7 @@ import {
 import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { arquivarTarefa, marcarTarefa, salvarTarefa } from "./actions";
+import { semResetar } from "@/lib/form";
 
 type Pessoa = { id: string; nome: string };
 type Visao = "minhas" | "pedi" | "todas";
@@ -361,7 +362,7 @@ function TarefaForm({
   const modelos = MODELOS.filter((m) => m.etiqueta === etiqueta);
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={semResetar(action)} className="space-y-4">
       {tarefa && <input type="hidden" name="id" value={tarefa.id} />}
       <input type="hidden" name="etiqueta" value={etiqueta} />
       <input type="hidden" name="recorrencia" value={recorrencia} />
