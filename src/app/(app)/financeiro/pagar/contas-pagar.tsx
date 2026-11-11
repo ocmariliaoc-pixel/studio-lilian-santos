@@ -24,6 +24,7 @@ import type { ContaDoMes, ContaFixa } from "@/lib/contas";
 import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { desfazerPagamento, pagarConta, salvarContaFixa } from "./actions";
+import { semResetar } from "@/lib/form";
 
 const SITUACAO = {
   paga: { texto: "paga", classe: "bg-emerald-50 text-emerald-900 border-emerald-200" },
@@ -202,7 +203,7 @@ function FormPagar({ item, hoje, onFeito }: { item: ContaDoMes; hoje: string; on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.em]);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={semResetar(action)} className="space-y-4">
       <input type="hidden" name="conta_id" value={item.conta.id} />
       <input type="hidden" name="vencimento" value={item.vencimento} />
       <div className="grid grid-cols-2 gap-3">
@@ -247,7 +248,7 @@ function FormConta({ conta, onFeito }: { conta: ContaFixa | null; onFeito: () =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.em]);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={semResetar(action)} className="space-y-4">
       {conta && <input type="hidden" name="id" value={conta.id} />}
       <input type="hidden" name="ativo" value={ativo ? "on" : "off"} />
       <div className="space-y-2">

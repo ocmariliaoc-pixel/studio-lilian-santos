@@ -22,6 +22,7 @@ import { CATEGORIAS_PRODUTO, formatDias, type Produto } from "@/lib/produtos";
 import type { AcaoState } from "@/lib/acoes";
 import { cn } from "@/lib/utils";
 import { registrarInventario, salvarProduto } from "./actions";
+import { semResetar } from "@/lib/form";
 
 function agrupar(produtos: Produto[]) {
   const mapa = new Map<string, Produto[]>();
@@ -184,7 +185,7 @@ function ProdutoForm({
   }, [state.em]);
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={semResetar(action)} className="space-y-4">
       {produto && <input type="hidden" name="id" value={produto.id} />}
       <div className="space-y-2">
         <Label htmlFor="nome">Nome</Label>

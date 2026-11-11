@@ -19,6 +19,7 @@ import {
 import { formatDuracao, numeroParaCampo, type Servico } from "@/lib/configuracoes";
 import type { AcaoState } from "@/lib/acoes";
 import { salvarServico } from "./actions";
+import { semResetar } from "@/lib/form";
 
 const DURACOES = [5, 10, 15, 20, 30, 40, 45, 50, 60, 75, 90, 105, 120, 150, 180, 210, 240];
 
@@ -81,7 +82,7 @@ function ServicoForm({
     : DURACOES;
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={semResetar(action)} className="space-y-4">
       {servico && <input type="hidden" name="id" value={servico.id} />}
 
       <div className="space-y-2">

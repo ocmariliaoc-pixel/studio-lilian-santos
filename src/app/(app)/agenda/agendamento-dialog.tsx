@@ -41,6 +41,7 @@ import {
 } from "@/lib/agenda";
 import { cn } from "@/lib/utils";
 import { marcarRealizado, mudarStatus, salvarAgendamento, type AgendaState } from "./actions";
+import { semResetar } from "@/lib/form";
 
 type Props = {
   open: boolean;
@@ -310,7 +311,7 @@ function AgendamentoForm({
   }
 
   return (
-    <form ref={formRef} action={action} className="space-y-4">
+    <form ref={formRef} onSubmit={semResetar(action)} className="space-y-4">
       {a && <input type="hidden" name="id" value={a.id} />}
       {ignorar && <input type="hidden" name="ignorar_horario" value="1" />}
       <input type="hidden" name="itens" value={JSON.stringify(itens)} />

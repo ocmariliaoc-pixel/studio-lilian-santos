@@ -22,6 +22,7 @@ import type { AcaoState } from "@/lib/acoes";
 import type { Papel } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { salvarUsuaria } from "./actions";
+import { semResetar } from "@/lib/form";
 
 export type Usuaria = {
   id: string;
@@ -121,7 +122,7 @@ function UsuariaForm({
   }, [state.em]);
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={semResetar(action)} className="space-y-4">
       <input type="hidden" name="id" value={usuaria.id} />
 
       <div className="space-y-2">

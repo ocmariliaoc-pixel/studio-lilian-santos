@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { salvarSenha, type NovaSenhaState } from "./actions";
+import { semResetar } from "@/lib/form";
 
 export function NovaSenhaForm() {
   const [state, action, pending] = useActionState<NovaSenhaState, FormData>(salvarSenha, {});
 
   return (
-    <form action={action} className="space-y-5">
+    <form onSubmit={semResetar(action)} className="space-y-5">
       <div className="space-y-2">
         <Label htmlFor="senha">Nova senha</Label>
         <Input id="senha" name="senha" type="password" autoComplete="new-password" minLength={8} required />

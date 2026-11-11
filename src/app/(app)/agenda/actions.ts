@@ -11,6 +11,7 @@ import {
   dataLocal,
   descricaoItens,
   diaDaSemana,
+  hhmmDeMinutos,
   minutosDeHHMM,
   paraISO,
   type ItemAgendamento,
@@ -69,8 +70,10 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
       const nomeDia = DIAS_SEMANA[dow].toLowerCase();
       let aviso: string | null = null;
       if (!h.aberto) aviso = `O studio não atende ${nomeDia}.`;
-      else if (ini < minutosDeHHMM(h.abre) || fim > minutosDeHHMM(h.fecha))
-        aviso = `Fora do horário de ${nomeDia} (${hhmm(h.abre)} às ${hhmm(h.fecha)}).`;
+      else if (ini < minutosDeHHMM(h.abre))
+        aviso = `Começa antes da abertura de ${nomeDia} (${hhmm(h.abre)} às ${hhmm(h.fecha)}).`;
+      else if (fim > minutosDeHHMM(h.fecha))
+        aviso = `Termina às ${hhmmDeMinutos(fim)}, depois do fechamento de ${nomeDia} (${hhmm(h.fecha)}).`;
       else if (
         h.pausa_inicio &&
         h.pausa_fim &&

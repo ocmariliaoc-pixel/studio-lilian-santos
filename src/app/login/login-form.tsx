@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { entrar, type LoginState } from "./actions";
+import { semResetar } from "@/lib/form";
 
 export function LoginForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(entrar, {});
 
   return (
-    <form action={action} className="space-y-5">
+    <form onSubmit={semResetar(action)} className="space-y-5">
       <input type="hidden" name="next" value={next ?? "/"} />
       <div className="space-y-2">
         <Label htmlFor="email">E-mail</Label>
