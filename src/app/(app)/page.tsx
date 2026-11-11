@@ -18,12 +18,12 @@ type Atalho = { href: string; titulo: string; descricao: string; icon: typeof Wa
 const ATALHOS_ADMIN: Atalho[] = [
   { href: "/financeiro", titulo: "Financeiro", descricao: "Entradas, saídas e saldo do mês", icon: Wallet },
   { href: "/metas", titulo: "Metas", descricao: "Meta x realizado por indicador", icon: Target },
-  { href: "/agenda", titulo: "Agenda de hoje", descricao: "Horários e confirmações", icon: CalendarDays },
+  { href: "/agenda?v=dia", titulo: "Agenda de hoje", descricao: "Horários e confirmações", icon: CalendarDays },
   { href: "/clientes", titulo: "Clientes", descricao: "Retornos e aniversariantes", icon: Users },
 ];
 
 const ATALHOS_PROFISSIONAL: Atalho[] = [
-  { href: "/agenda", titulo: "Atendimentos de hoje", descricao: "Status e WhatsApp da cliente", icon: CalendarDays },
+  { href: "/agenda?v=dia", titulo: "Atendimentos de hoje", descricao: "Status e WhatsApp da cliente", icon: CalendarDays },
   { href: "/clientes", titulo: "Fichas das clientes", descricao: "Dados, anamnese e histórico", icon: UserRoundCheck },
   { href: "/clientes", titulo: "Aniversariantes", descricao: "Clientes que fazem aniversário na semana", icon: Cake },
   { href: "/financeiro", titulo: "Caixa", descricao: "Lançar entradas e saídas", icon: TrendingUp },
