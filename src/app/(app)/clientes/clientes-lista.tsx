@@ -93,6 +93,8 @@ export function ClientesLista({
     return { acomp, cupons: cup };
   }, [acompanhamentos, cupons]);
   const [busca, setBusca] = useState("");
+  // Nos leads: com ou sem agendamento marcado daqui para frente
+  const [agendado, setAgendado] = useState<"todos" | "com" | "sem">("todos");
   const [ordem, setOrdem] = useState<Ordem>("gasto");
   const [filtro, setFiltro] = useState<Filtro>(
     FILTROS.some((f) => f.v === filtroInicial) ? (filtroInicial as Filtro) : "todos"
@@ -109,6 +111,7 @@ export function ClientesLista({
     const teste = FILTROS.find((f) => f.v === filtro)!.teste;
     return clientes
       .filter((c) => teste(c, hoje, extras))
+      .filter((c) => filtro !== "lead" || agendado === "todos" || (agendado === "com") === !!c.proximo_agendamento)
       .filter((c) => !termo || nomeCombina(termo, c.nome) ||
           (termo.replace(/\D/g, "") !== "" && c.whatsapp?.includes(termo.replace(/\D/g, ""))) ||
           c.instagram?.includes(termo.replace(/^@/, "")))
@@ -120,7 +123,7 @@ export function ClientesLista({
         if (ordem === "recente") return b.ultima_visita.localeCompare(a.ultima_visita) || nome;
         return a.ultima_visita.localeCompare(b.ultima_visita) || nome;
       });
-  }, [clientes, busca, ordem, filtro, hoje, extras]);
+  }, [clientes, busca, ordem, filtro, agendado, hoje, extras]);
 
   const maior = Math.max(...clientes.map((c) => c.total_gasto), 1);
   const total = clientes.reduce((s, c) => s + c.total_gasto, 0);
@@ -155,6 +158,35 @@ export function ClientesLista({
           );
         })}
       </div>
+
+      {filtro === "lead" && (
+        <div className="bg-secondary/60 grid grid-cols-3 gap-1 rounded-xl p-1 sm:w-[30rem]">
+          {(
+            [
+              ["todos", "Todos os leads"],
+              ["com", "Com agendamento"],
+              ["sem", "Sem agendamento"],
+            ] as const
+          ).map(([v, rotulo]) => {
+            const n = clientes.filter(
+              (c) => c.status === "lead" && (v === "todos" || (v === "com") === !!c.proximo_agendamento)
+            ).length;
+            return (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setAgendado(v)}
+                className={cn(
+                  "h-10 rounded-lg px-1 text-xs leading-tight font-medium sm:text-sm",
+                  agendado === v ? "bg-card shadow-sm" : "text-muted-foreground"
+                )}
+              >
+                {rotulo} <span className="opacity-70">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
