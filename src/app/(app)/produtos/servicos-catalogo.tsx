@@ -3,8 +3,9 @@ import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatMoeda } from "@/lib/format";
 import { formatDuracao, type Servico } from "@/lib/configuracoes";
+import { NovoServicoBotao } from "./novo-servico";
 
-/** Catálogo de serviços (somente leitura aqui; edição em Configurações → Serviços). */
+/** Catálogo de serviços: todas cadastram serviço novo aqui; editar preço/duração fica em Configurações → Serviços (admin). */
 export function ServicosCatalogo({ servicos, admin }: { servicos: Servico[]; admin: boolean }) {
   const grupos = new Map<string, Servico[]>();
   for (const s of servicos) grupos.set(s.categoria, [...(grupos.get(s.categoria) ?? []), s]);
@@ -16,13 +17,16 @@ export function ServicosCatalogo({ servicos, admin }: { servicos: Servico[]; adm
         <p className="text-muted-foreground text-sm">
           {servicos.length} serviços ativos · preço, duração e retorno sugerido.
         </p>
-        {admin && (
-          <Button asChild variant="outline">
-            <Link href="/configuracoes/servicos">
-              <Pencil /> Editar serviços
-            </Link>
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <NovoServicoBotao categorias={[...grupos.keys()].sort((a, b) => a.localeCompare(b, "pt-BR"))} />
+          {admin && (
+            <Button asChild variant="outline">
+              <Link href="/configuracoes/servicos">
+                <Pencil /> Editar serviços
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
       {lista.map(([categoria, itens]) => (
         <section key={categoria}>

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getPerfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { acharOuCriarCliente } from "@/lib/clientes-server";
+import { resolverCliente } from "@/lib/clientes-server";
 import { FORMAS_PAGAMENTO, parseNumeroBR, type FormaPagamento } from "@/lib/configuracoes";
 import { isDataISO } from "@/lib/financeiro";
 import { normalizarTelefone } from "@/lib/clientes";
@@ -63,11 +63,22 @@ export async function salvarLancamento(_: AcaoState, formData: FormData): Promis
 
   const supabase = await createClient();
 
-  // Liga (ou cadastra) a cliente pelo nome. Se a tabela ainda não existir, segue só com o nome.
-  const clienteId = dados.cliente_nome ? await acharOuCriarCliente(supabase, dados.cliente_nome) : null;
+  // Liga (ou cadastra) a cliente pelo nome, sem duplicar: nome parecido pede confirmação.
+  let clienteId: string | null = null;
+  let clienteNova = false;
+  if (dados.cliente_nome) {
+    const r = await resolverCliente(supabase, dados.cliente_nome, {
+      confirmarNova: formData.get("confirmar_nova") === "1",
+      whatsapp,
+    });
+    if (!r.ok) return { ...falha(r.erro), parecidas: r.parecidas };
+    clienteId = r.id;
+    clienteNova = r.nova;
+    dados.cliente_nome = r.nome;
+  }
   const registro = clienteId ? { ...dados, cliente_id: clienteId } : dados;
   // Nova cliente: guarda o WhatsApp (sem apagar um número que já estava salvo)
-  if (clienteId && whatsapp)
+  if (clienteId && whatsapp && !clienteNova)
     await supabase.from("clientes").update({ whatsapp }).eq("id", clienteId).is("whatsapp", null);
 
   const { error, count } = id

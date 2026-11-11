@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getPerfil } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { acharOuCriarCliente } from "@/lib/clientes-server";
+import { resolverCliente } from "@/lib/clientes-server";
+import { normalizarTelefone } from "@/lib/clientes";
 import { DIAS_SEMANA, FORMAS_PAGAMENTO, hhmm, parseNumeroBR, type FormaPagamento } from "@/lib/configuracoes";
 import { isDataISO } from "@/lib/financeiro";
 import {
@@ -95,8 +96,14 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
     }
   }
 
-  const clienteId = await acharOuCriarCliente(supabase, clienteNome);
-  if (!clienteId) return falha("Não foi possível cadastrar a cliente. Confira se a migração 0006 foi rodada.");
+  // Mesma cliente pelo nome; nome parecido com outro cadastro pede confirmação (não duplica)
+  const whatsapp = normalizarTelefone(String(formData.get("cliente_whatsapp") ?? "")) || null;
+  const rc = await resolverCliente(supabase, clienteNome, {
+    confirmarNova: formData.get("confirmar_nova") === "1",
+    whatsapp,
+  });
+  if (!rc.ok) return { ...falha(rc.erro), parecidas: rc.parecidas };
+  const clienteId = rc.id;
 
   const { error } = await supabase.rpc("salvar_agendamento", {
     p_id: id,

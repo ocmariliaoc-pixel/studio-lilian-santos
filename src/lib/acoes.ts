@@ -4,6 +4,8 @@ export type AcaoState = {
   erro?: string;
   /** Muda a cada envio, para o formulário reagir mesmo com mensagens iguais. */
   em?: number;
+  /** cadastros de cliente parecidos com o nome digitado (para escolher em vez de duplicar) */
+  parecidas?: string[];
 };
 
 export function sucesso(): AcaoState {

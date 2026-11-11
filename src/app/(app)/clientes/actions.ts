@@ -43,3 +43,21 @@ export async function salvarCampoCliente(
   revalidatePath("/clientes");
   return { ...sucesso(), valor };
 }
+
+/** Junta dois cadastros da mesma cliente: o histórico de `sai` vai para `fica` e `sai` deixa de existir. */
+export async function juntarClientes(fica: string, sai: string): Promise<AcaoState> {
+  await getPerfil();
+  if (!/^[0-9a-f-]{36}$/i.test(fica) || !/^[0-9a-f-]{36}$/i.test(sai)) return falha("Cliente inválida.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("juntar_clientes", { p_fica: fica, p_sai: sai });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883")
+      return falha("Rode a migração 0014 no Supabase para poder juntar cadastros.");
+    return falha(mensagemErroBanco(error));
+  }
+  revalidatePath("/clientes");
+  revalidatePath("/");
+  revalidatePath("/agenda");
+  revalidatePath("/financeiro");
+  return sucesso();
+}

@@ -1,15 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { getPerfil, requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { parseNumeroBR } from "@/lib/configuracoes";
 import { falha, mensagemErroBanco, sucesso, type AcaoState } from "@/lib/acoes";
 
 export async function salvarServico(_: AcaoState, formData: FormData): Promise<AcaoState> {
-  await requireAdmin();
-
   const id = String(formData.get("id") ?? "") || null;
+  // Cadastrar serviço novo: toda a equipe (a Lilian também). Editar um existente: só a admin.
+  if (id) await requireAdmin();
+  else if (!(await getPerfil()).ativo) return falha("Conta desativada.");
+
   const nome = String(formData.get("nome") ?? "").trim();
   const categoria = String(formData.get("categoria") ?? "").trim() || "Outros";
   const duracao = Number(formData.get("duracao_min"));
@@ -42,5 +44,8 @@ export async function salvarServico(_: AcaoState, formData: FormData): Promise<A
   if (error) return falha(mensagemErroBanco(error));
 
   revalidatePath("/configuracoes/servicos");
+  revalidatePath("/produtos");
+  revalidatePath("/agenda");
+  revalidatePath("/");
   return sucesso();
 }
