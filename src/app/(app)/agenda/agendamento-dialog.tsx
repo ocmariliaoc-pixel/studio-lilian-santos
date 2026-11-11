@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Ban, CalendarCheck, Check, Loader2, MessageCircle, RotateCcw, UserX, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -264,7 +264,17 @@ function AgendamentoForm({
   const [itens, setItens] = useState<ItemAgendamento[]>(a?.itens ?? []);
   const [hora, setHora] = useState(a ? hhmmDeMinutos(minutosLocal(a.inicio)) : novoEm.hora);
   const [valorManual, setValorManual] = useState<string | null>(a ? numeroParaCampo(a.valor_total) : null);
+  // "Marcar mesmo assim": guarda a confirmação num campo escondido e reenvia o formulário
+  // depois de atualizar a tela (o botão some ao confirmar e não podia ser ele a enviar).
   const [ignorar, setIgnorar] = useState(false);
+  const [reenviar, setReenviar] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (reenviar) {
+      setReenviar(false);
+      formRef.current?.requestSubmit();
+    }
+  }, [reenviar]);
   const editavel = !a || a.status === "agendado" || a.status === "confirmado";
 
   useEffect(() => {
@@ -300,8 +310,9 @@ function AgendamentoForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form ref={formRef} action={action} className="space-y-4">
       {a && <input type="hidden" name="id" value={a.id} />}
+      {ignorar && <input type="hidden" name="ignorar_horario" value="1" />}
       <input type="hidden" name="itens" value={JSON.stringify(itens)} />
 
       <fieldset disabled={!editavel} className="min-w-0 space-y-4">
@@ -399,15 +410,16 @@ function AgendamentoForm({
       {state.foraDoHorario && !ignorar ? (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
           <p>{state.foraDoHorario}</p>
-          {/* o próprio botão envia ignorar_horario=1 junto com o formulário */}
           <Button
-            type="submit"
-            name="ignorar_horario"
-            value="1"
+            type="button"
             variant="outline"
             size="sm"
             className="mt-2"
-            onClick={() => setIgnorar(true)}
+            disabled={pending}
+            onClick={() => {
+              setIgnorar(true);
+              setReenviar(true);
+            }}
           >
             Marcar mesmo assim
           </Button>
