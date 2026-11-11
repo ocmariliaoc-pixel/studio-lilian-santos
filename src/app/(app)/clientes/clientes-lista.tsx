@@ -10,6 +10,7 @@ import { diasAteAniversario, diasDesde, faixaGasto, STATUS_CLIENTE, type Cliente
 import { formatData, formatHora } from "@/lib/format";
 import { nomeCombina } from "@/lib/nomes";
 import { CadastrosRepetidos } from "./repetidos";
+import { NomeCliente } from "./nome-cliente";
 import { cn } from "@/lib/utils";
 import { ContatoCampos } from "./contato-campos";
 import { FunilGrafico } from "./funil-grafico";
@@ -206,7 +207,7 @@ export function ClientesLista({
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{c.nome}</span>
+                      <NomeCliente key={c.nome} id={c.id} nome={c.nome} />
                       {pos && pos <= 3 && (
                         <span className="flex items-center gap-0.5 text-xs font-semibold text-amber-600">
                           <Crown className="size-3.5" />
