@@ -5,6 +5,7 @@ import { Ban, CalendarCheck, Check, Loader2, MessageCircle, RotateCcw, UserX, X 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CampoCliente } from "@/components/campo-cliente";
 import { CampoData, CampoHora } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -306,20 +307,7 @@ function AgendamentoForm({
       <fieldset disabled={!editavel} className="min-w-0 space-y-4">
         <div className="space-y-2">
           <Label htmlFor="cliente_nome">Cliente</Label>
-          <Input
-            id="cliente_nome"
-            name="cliente_nome"
-            list="agenda-clientes"
-            defaultValue={a?.cliente_nome}
-            placeholder="Nome (nova cliente é cadastrada)"
-            autoComplete="off"
-            required
-          />
-          <datalist id="agenda-clientes">
-            {clientes.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
+          <CampoCliente clientes={clientes} defaultValue={a?.cliente_nome} parecidasServidor={state.parecidas} required />
         </div>
 
         <div className="grid grid-cols-2 gap-3">

@@ -8,6 +8,8 @@ import { FORMAS_PAGAMENTO } from "@/lib/configuracoes";
 import { dataBR, nomeForma } from "@/lib/financeiro";
 import { diasAteAniversario, diasDesde, faixaGasto, STATUS_CLIENTE, type ClienteResumo } from "@/lib/clientes";
 import { formatData, formatHora } from "@/lib/format";
+import { nomeCombina } from "@/lib/nomes";
+import { CadastrosRepetidos } from "./repetidos";
 import { cn } from "@/lib/utils";
 import { ContatoCampos } from "./contato-campos";
 import { FunilGrafico } from "./funil-grafico";
@@ -106,7 +108,7 @@ export function ClientesLista({
     const teste = FILTROS.find((f) => f.v === filtro)!.teste;
     return clientes
       .filter((c) => teste(c, hoje, extras))
-      .filter((c) => !termo || c.nome.toLocaleLowerCase("pt-BR").includes(termo) ||
+      .filter((c) => !termo || nomeCombina(termo, c.nome) ||
           (termo.replace(/\D/g, "") !== "" && c.whatsapp?.includes(termo.replace(/\D/g, ""))) ||
           c.instagram?.includes(termo.replace(/^@/, "")))
       .sort((a, b) => {
@@ -132,6 +134,7 @@ export function ClientesLista({
       </div>
 
       <FunilGrafico clientes={clientes} />
+      <CadastrosRepetidos clientes={clientes} />
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
         {FILTROS.map((f) => {

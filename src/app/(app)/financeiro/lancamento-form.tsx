@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { ArrowDownLeft, ArrowUpRight, Loader2, RotateCcw, Ban, UserPlus, X } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Loader2, RotateCcw, Ban, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CampoData } from "@/components/ui/campo-data";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { CampoCliente } from "@/components/campo-cliente";
 import {
   Dialog,
   DialogContent,
@@ -125,8 +126,6 @@ function LancamentoForm({
   const [servicosEscolhidos, setServicosEscolhidos] = useState<string[]>([]);
   // Valor vem da tabela; "Valor diferenciado" libera para digitar (desconto, cortesia, preço combinado).
   const [valorDiferenciado, setValorDiferenciado] = useState(!!lancamento);
-  const [clienteNova, setClienteNova] = useState(false);
-  const [clienteNome, setClienteNome] = useState(lancamento?.cliente_nome ?? "");
   const bloqueado = !podeEditar || lancamento?.cancelado;
 
   useEffect(() => {
@@ -197,10 +196,6 @@ function LancamentoForm({
     setValorDiferenciado(marcado);
     if (!marcado && valorTabela != null) setValorTexto(numeroParaCampo(valorTabela));
   }
-
-  const nomeJaExiste =
-    clienteNova && clienteNome.trim() !== "" &&
-    dados.clientes.some((c) => c.toLowerCase() === clienteNome.trim().toLowerCase());
 
   function mudarQuantidade(qtd: number) {
     const q = Math.max(1, qtd);
@@ -412,57 +407,13 @@ function LancamentoForm({
 
         {tipo === "entrada" && (
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="cliente_nome">{clienteNova ? "Nova cliente" : "Cliente"}</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-gold-dark h-8"
-                onClick={() => setClienteNova(!clienteNova)}
-              >
-                {clienteNova ? "Escolher da lista" : <><UserPlus /> Nova cliente</>}
-              </Button>
-            </div>
-            <Input
-              id="cliente_nome"
-              name="cliente_nome"
-              value={clienteNome}
-              onChange={(e) => setClienteNome(e.target.value)}
-              placeholder={clienteNova ? "Nome completo" : "Nome da cliente (opcional)"}
-              list={clienteNova ? undefined : "lista-clientes"}
-              autoComplete="off"
-              required={clienteNova}
+            <Label htmlFor="cliente_nome">Cliente</Label>
+            <CampoCliente
+              clientes={dados.clientes}
+              defaultValue={lancamento?.cliente_nome ?? ""}
+              parecidasServidor={state.parecidas}
+              placeholder="Nome da cliente (opcional)"
             />
-            <datalist id="lista-clientes">
-              {dados.clientes.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-            {clienteNova ? (
-              <>
-                <Input
-                  name="cliente_whatsapp"
-                  type="tel"
-                  inputMode="tel"
-                  placeholder="WhatsApp com DDD, ex.: (85) 99999-8888"
-                  autoComplete="off"
-                />
-                {nomeJaExiste ? (
-                  <p className="text-xs text-amber-800">
-                    Já existe uma cliente com esse nome: o lançamento vai para a ficha dela.
-                  </p>
-                ) : (
-                  <p className="text-muted-foreground text-xs">
-                    A cliente é cadastrada em Clientes ao registrar.
-                  </p>
-                )}
-              </>
-            ) : (
-              <p className="text-muted-foreground text-xs">
-                Use o mesmo nome de sempre: o lançamento vai para o histórico dela em Clientes.
-              </p>
-            )}
           </div>
         )}
 
