@@ -61,3 +61,25 @@ export async function juntarClientes(fica: string, sai: string): Promise<AcaoSta
   revalidatePath("/financeiro");
   return sucesso();
 }
+
+/** Corrige o nome da cliente (e nas vendas dela). Nome igual ao de outra cliente é recusado. */
+export async function renomearCliente(id: string, nome: string): Promise<AcaoState & { nome?: string }> {
+  await getPerfil();
+  const limpo = nome.trim().replace(/\s+/g, " ");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return falha("Cliente inválida.");
+  if (limpo.length < 2) return falha("Escreva o nome da cliente.");
+  if (limpo.length > 120) return falha("Nome muito longo.");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("renomear_cliente", { p_id: id, p_nome: limpo });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883")
+      return falha("Rode a migração 0015 no Supabase para poder corrigir nomes.");
+    return falha(mensagemErroBanco(error));
+  }
+  revalidatePath("/clientes");
+  revalidatePath("/agenda");
+  revalidatePath("/financeiro");
+  revalidatePath("/");
+  return { ...sucesso(), nome: (data as string) ?? limpo };
+}
