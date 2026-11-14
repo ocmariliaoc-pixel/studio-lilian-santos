@@ -318,6 +318,35 @@ function VisaoDia({
   const cancelados = agendamentos.filter((a) => a.status === "cancelado");
   const previsto = ativos.filter((a) => a.status !== "faltou").reduce((s, a) => s + a.valor_total, 0);
 
+  // Atendimentos sobrepostos ficam lado a lado (a Lilian pode aceitar duas clientes no mesmo horário)
+  const colunas = useMemo(() => {
+    const lugar = new Map<string, { col: number; cols: number }>();
+    const ordem = [...ativos].sort((x, y) => x.inicio.localeCompare(y.inicio));
+    let grupo: string[] = [];
+    let fimGrupo = -1;
+    let finsColunas: number[] = [];
+    const fechar = () => {
+      for (const id of grupo) lugar.get(id)!.cols = finsColunas.length;
+      grupo = [];
+      finsColunas = [];
+    };
+    for (const a of ordem) {
+      const de = minutosLocal(a.inicio);
+      const ate = minutosLocal(a.fim_ocupado) || 24 * 60;
+      if (grupo.length && de >= fimGrupo) fechar();
+      let col = finsColunas.findIndex((f) => f <= de);
+      if (col < 0) {
+        col = finsColunas.length;
+        finsColunas.push(ate);
+      } else finsColunas[col] = ate;
+      lugar.set(a.id, { col, cols: 1 });
+      grupo.push(a.id);
+      fimGrupo = Math.max(fimGrupo, ate);
+    }
+    fechar();
+    return lugar;
+  }, [ativos]);
+
   // Lembrete de 30 min para as tarefas: só uma sugestão, não bloqueia a agenda
   const tarefasEm = horarioTarefas(
     abre,
@@ -349,8 +378,8 @@ function VisaoDia({
         >
           <ListChecks className="size-5 shrink-0 text-violet-700" />
           <span className="min-w-0 flex-1">
-            <b>Reserve 30 min para as tarefas</b>: sugestão {hhmmDeMinutos(tarefasEm!)}–
-            {hhmmDeMinutos(tarefasEm! + MIN_TAREFAS)}
+            <b>Lembrete: 30 min para as tarefas</b> · sugestão {hhmmDeMinutos(tarefasEm!)}–
+            {hhmmDeMinutos(tarefasEm! + MIN_TAREFAS)} (o horário continua livre para agendar)
             {ehHoje && tarefasPendentes != null && (
               <span className="block text-xs opacity-80">
                 {tarefasPendentes === 0
@@ -396,18 +425,20 @@ function VisaoDia({
             </div>
           )}
 
-          {/* lembrete das tarefas: tracejado e sem clique (o toque passa para a agenda) */}
-          {mostrarTarefas && (
-            <div
-              className="pointer-events-none absolute right-1 left-1 z-10 flex items-start rounded-md border border-dashed border-violet-300 bg-violet-50/50 px-2 py-0.5 text-[11px] font-medium text-violet-800"
-              style={{ top: (tarefasEm! - ini) * PX_POR_MIN, height: MIN_TAREFAS * PX_POR_MIN }}
-            >
-              {hhmmDeMinutos(tarefasEm!)} · 30 min para as tarefas (lembrete)
-            </div>
-          )}
-
           {/* toque num horário livre */}
           <div className="absolute inset-0 cursor-pointer" onClick={tocar} aria-label="Tocar para agendar" />
+
+          {/* lembrete das tarefas: só um lembrete — tocar nele abre um agendamento normal nesse horário */}
+          {mostrarTarefas && (
+            <button
+              type="button"
+              onClick={() => onNovo(hhmmDeMinutos(tarefasEm!))}
+              className="absolute right-1 left-1 flex items-start rounded-md border border-dashed border-violet-300 bg-violet-50/40 px-2 py-0.5 text-left text-[11px] font-medium text-violet-800"
+              style={{ top: (tarefasEm! - ini) * PX_POR_MIN, height: MIN_TAREFAS * PX_POR_MIN }}
+            >
+              {hhmmDeMinutos(tarefasEm!)} · lembrete: 30 min para as tarefas (horário livre, toque para agendar)
+            </button>
+          )}
 
           {bloqueios.map((b) => {
             const de = Math.max(ini, minutosLocal(b.inicio));
@@ -416,12 +447,22 @@ function VisaoDia({
           })}
 
           {ativos.map((a) => {
+            const lugar = colunas.get(a.id) ?? { col: 0, cols: 1 };
             const top = (minutosLocal(a.inicio) - ini) * PX_POR_MIN;
             const h = (minutosLocal(a.fim) - minutosLocal(a.inicio)) * PX_POR_MIN;
             const hIntervalo = (minutosLocal(a.fim_ocupado) - minutosLocal(a.fim)) * PX_POR_MIN;
             const st = STATUS[a.status];
             return (
-              <div key={a.id} className="absolute right-1 left-1" style={{ top }}>
+              <div
+                key={a.id}
+                className="absolute"
+                style={{
+                  top,
+                  left: `calc(${(lugar.col / lugar.cols) * 100}% + 4px)`,
+                  width: `calc(${100 / lugar.cols}% - 8px)`,
+                }}
+                title={lugar.cols > 1 ? "Horário sobreposto com outro atendimento" : undefined}
+              >
                 <button
                   type="button"
                   onClick={() => onAbrir(a)}
@@ -454,7 +495,8 @@ function VisaoDia({
 
       <p className="text-muted-foreground text-xs">
         Toque num horário livre para agendar. A faixa tracejada embaixo de cada atendimento é o intervalo
-        para arrumar a sala. O roxo tracejado é só um lembrete das tarefas: dá para agendar por cima.
+        para arrumar a sala. O roxo tracejado é só um lembrete das tarefas: o horário continua livre.
+        Atendimentos lado a lado = horários sobrepostos.
         Etiquetas: <b>Nova</b> = primeira vez no studio · <b>Ativa</b> = já é cliente.
       </p>
 

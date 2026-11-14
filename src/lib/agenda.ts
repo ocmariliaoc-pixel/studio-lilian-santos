@@ -151,3 +151,16 @@ export function horariosLivres(
   }
   return livres;
 }
+
+/** WhatsApp logo depois de marcar: "Olá, Fulana! Seu agendamento foi marcado para sábado, 15/11, às 10:00…" */
+export function mensagemMarcado(m: { nome: string; inicio: string; servicos: string; remarcado: boolean }) {
+  const primeiro = m.nome.split(" ")[0];
+  const dia = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TIMEZONE,
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(m.inicio));
+  const hora = hhmmDeMinutos(minutosLocal(m.inicio));
+  return `Olá, ${primeiro}! Seu agendamento no Studio Lilian Santos foi ${m.remarcado ? "remarcado" : "marcado"} para ${dia}, às ${hora}${m.servicos ? ` (${m.servicos})` : ""}. Qualquer dúvida, é só chamar 💛`;
+}

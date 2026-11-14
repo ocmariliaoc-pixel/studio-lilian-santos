@@ -36,6 +36,7 @@ import {
   minutosLocal,
   choqueCom,
   horariosLivres,
+  mensagemMarcado,
   STATUS,
   type Agendamento,
   type OcupacaoDia,
@@ -268,7 +269,6 @@ function AgendamentoForm({
   const [itens, setItens] = useState<ItemAgendamento[]>(a?.itens ?? []);
   const [hora, setHora] = useState(a ? hhmmDeMinutos(minutosLocal(a.inicio)) : novoEm.hora);
   const [data, setData] = useState(a ? dataLocal(a.inicio) : novoEm.data);
-  const [temChoque, setTemChoque] = useState(false);
   const [valorManual, setValorManual] = useState<string | null>(a ? numeroParaCampo(a.valor_total) : null);
   // "Marcar mesmo assim": guarda a confirmação num campo escondido e reenvia o formulário
   // depois de atualizar a tela (o botão some ao confirmar e não podia ser ele a enviar).
@@ -287,7 +287,8 @@ function AgendamentoForm({
     if (state.foraDoHorario) setIgnorar(false); // mostra de novo o "Marcar mesmo assim"
     if (state.ok) {
       toast.success(a ? "Agendamento atualizado" : "Agendado!");
-      onFechar();
+      // Novo ou remarcado: oferece a mensagem no WhatsApp; senão, fecha
+      if (!state.marcado || (a && !state.marcado.remarcado)) onFechar();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.em]);
@@ -315,9 +316,37 @@ function AgendamentoForm({
     setValorManual(null);
   }
 
+  if (state.ok && state.marcado && (!a || state.marcado.remarcado)) {
+    const m = state.marcado;
+    const texto = mensagemMarcado(m);
+    const link = linkWhatsApp(m.whatsapp, texto) ?? `https://wa.me/?text=${encodeURIComponent(texto)}`;
+    return (
+      <div className="space-y-4">
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
+          ✓ {m.remarcado ? "Remarcado" : "Agendado"}: <b>{m.nome}</b>
+        </p>
+        <div className="bg-secondary/50 rounded-lg p-3 text-sm whitespace-pre-line">{texto}</div>
+        <Button asChild size="lg" className="w-full bg-emerald-600 text-white hover:bg-emerald-700">
+          <a href={link} target="_blank" rel="noopener noreferrer" onClick={() => setTimeout(onFechar, 300)}>
+            <MessageCircle /> Mandar no WhatsApp
+          </a>
+        </Button>
+        {!m.whatsapp && (
+          <p className="text-muted-foreground text-xs">
+            Ela ainda não tem WhatsApp no cadastro: o WhatsApp abre para você escolher o contato.
+          </p>
+        )}
+        <Button variant="ghost" className="w-full" onClick={onFechar}>
+          Agora não
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <form ref={formRef} onSubmit={semResetar(action)} className="space-y-4">
       {a && <input type="hidden" name="id" value={a.id} />}
+      {a && <input type="hidden" name="inicio_anterior" value={a.inicio} />}
       {ignorar && <input type="hidden" name="ignorar_horario" value="1" />}
       <input type="hidden" name="itens" value={JSON.stringify(itens)} />
 
@@ -342,7 +371,6 @@ function AgendamentoForm({
               intervalo={intervalo}
               ignorarId={a?.id ?? null}
               editavel={editavel}
-              onChoque={setTemChoque}
             />
           </div>
         </div>
@@ -448,7 +476,7 @@ function AgendamentoForm({
       )}
 
       {editavel && (
-        <Button type="submit" size="lg" className="w-full" disabled={pending || itens.length === 0 || temChoque}>
+        <Button type="submit" size="lg" className="w-full" disabled={pending || itens.length === 0}>
           {pending && <Loader2 className="animate-spin" />}
           {a ? "Salvar alterações" : "Agendar"}
         </Button>
@@ -470,9 +498,7 @@ function HorarioLivre({
   intervalo,
   ignorarId,
   editavel,
-  onChoque,
 }: {
-  onChoque: (sim: boolean) => void;
   data: string;
   hora: string;
   onHora: (h: string) => void;
@@ -513,15 +539,18 @@ function HorarioLivre({
   const minHora = /^\d{2}:\d{2}$/.test(hora) ? minutosDeHHMM(hora) : null;
   const choque = ocupacao && minHora != null ? choqueCom(ocupacao, minHora, Math.max(duracao, 15), intervalo) : null;
   const naLista = minHora != null && livres.includes(minHora);
-  useEffect(() => onChoque(!!choque), [choque, onChoque]);
 
-  // Horário que não está na lista: se não choca com ninguém (ex.: fora do expediente), vira "outro";
-  // se choca, limpa para escolher um livre.
+  // Horário que não está na lista:
+  //  - agendamento novo, ao abrir/trocar o dia: já sugere o primeiro horário livre;
+  //  - depois disso (ou ao editar um marcado): mostra no campo "outro", sem apagar (sobreposto só avisa).
+  const sugerido = useRef<string | null>(null);
   useEffect(() => {
-    if (!ocupacao || !editavel || minHora == null || naLista) return;
-    if (choque) {
-      if (!outro) onHora("");
-    } else setOutro(true);
+    if (!ocupacao || !editavel || naLista) return;
+    if (!ignorarId && sugerido.current !== data) {
+      sugerido.current = data;
+      if (livres.length) return onHora(hhmmDeMinutos(livres[0]));
+    }
+    if (minHora != null) setOutro(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ocupacao, naLista]);
 
@@ -549,12 +578,13 @@ function HorarioLivre({
             if (outro && !naLista) onHora("");
           }}
         >
-          {outro ? "Ver só os horários livres" : "Outro horário (fora do expediente)"}
+          {outro ? "Ver só os horários livres" : "Outro horário (digitar)"}
         </button>
       )}
       {choque && (
         <p className="text-destructive text-xs font-medium">
-          Choca com {choque.quem} ({hhmmDeMinutos(choque.de)}–{hhmmDeMinutos(choque.ate)}). Escolha outro horário.
+          ⚠ Horário sobreposto com {choque.quem} ({hhmmDeMinutos(choque.de)}–{hhmmDeMinutos(choque.ate)}). Dá
+          para marcar mesmo assim.
         </p>
       )}
       {!outro && !carregando && ocupacao && livres.length === 0 && (

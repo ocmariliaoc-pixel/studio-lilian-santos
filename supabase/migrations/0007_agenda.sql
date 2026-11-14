@@ -26,13 +26,7 @@ create table if not exists public.agendamentos (
 
 create index if not exists agendamentos_inicio_idx on public.agendamentos (inicio);
 
--- Sem conflito de horário: dois agendamentos ativos não podem se sobrepor (uma profissional).
-do $$ begin
-  alter table public.agendamentos
-    add constraint agendamentos_sem_conflito
-    exclude using gist (tstzrange(inicio, fim_ocupado, '[)') with &&)
-    where (status in ('agendado', 'confirmado', 'realizado'));
-exception when duplicate_object or duplicate_table then null; end $$;
+-- (A trava de sobreposição "agendamentos_sem_conflito" foi retirada na 0016: agora a tela só avisa.)
 
 drop trigger if exists agendamentos_atualizado_em on public.agendamentos;
 create trigger agendamentos_atualizado_em

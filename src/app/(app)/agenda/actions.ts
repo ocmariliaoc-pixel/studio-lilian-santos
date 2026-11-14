@@ -25,7 +25,11 @@ import {
 } from "@/lib/agenda";
 import { falha, mensagemErroBanco, sucesso, type AcaoState } from "@/lib/acoes";
 
-export type AgendaState = AcaoState & { foraDoHorario?: string };
+export type AgendaState = AcaoState & {
+  foraDoHorario?: string;
+  /** depois de salvar: para a mensagem de WhatsApp "seu agendamento foi marcado" */
+  marcado?: { nome: string; whatsapp: string | null; inicio: string; servicos: string; remarcado: boolean };
+};
 
 /** O que já está ocupado num dia (para a tela oferecer só horários livres). */
 export async function ocupacaoDoDia(data: string, ignorarId: string | null): Promise<OcupacaoDia | null> {
@@ -166,12 +170,24 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
 
   if (error) {
     if (error.code === "23P01")
-      return falha("Esse horário já está ocupado (contando o intervalo entre clientes). Escolha outro.");
+      return falha("O banco ainda trava horários sobrepostos: rode a migração 0016 no Supabase.");
     return falha(mensagemErroBanco(error));
   }
 
   revalidar();
-  return sucesso();
+  const { data: cli } = await supabase.from("clientes").select("nome, whatsapp").eq("id", clienteId).maybeSingle();
+  const novoInicio = paraISO(data, hora);
+  const anterior = String(formData.get("inicio_anterior") ?? "");
+  return {
+    ...sucesso(),
+    marcado: {
+      nome: cli?.nome ?? clienteNome,
+      whatsapp: cli?.whatsapp ?? null,
+      inicio: novoInicio,
+      servicos: descricaoItens(itens),
+      remarcado: !!id && !!anterior && new Date(anterior).getTime() !== new Date(novoInicio).getTime(),
+    },
+  };
 }
 
 export async function mudarStatus(id: string, status: StatusAgendamento): Promise<AcaoState> {
@@ -183,7 +199,6 @@ export async function mudarStatus(id: string, status: StatusAgendamento): Promis
     .update({ status, ...(status === "confirmado" ? { confirmado_em: new Date().toISOString() } : {}) })
     .eq("id", id);
   if (error) {
-    if (error.code === "23P01") return falha("Não dá para reabrir: o horário já foi ocupado por outra cliente.");
     return falha(mensagemErroBanco(error));
   }
   revalidar();
