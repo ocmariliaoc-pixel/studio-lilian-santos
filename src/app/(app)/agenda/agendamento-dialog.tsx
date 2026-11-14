@@ -34,13 +34,16 @@ import {
   mensagemConfirmacao,
   minutosDeHHMM,
   minutosLocal,
+  choqueCom,
+  horariosLivres,
   STATUS,
   type Agendamento,
+  type OcupacaoDia,
   type ItemAgendamento,
   type StatusAgendamento,
 } from "@/lib/agenda";
 import { cn } from "@/lib/utils";
-import { marcarRealizado, mudarStatus, salvarAgendamento, type AgendaState } from "./actions";
+import { marcarRealizado, mudarStatus, ocupacaoDoDia, salvarAgendamento, type AgendaState } from "./actions";
 import { semResetar } from "@/lib/form";
 
 type Props = {
@@ -264,6 +267,8 @@ function AgendamentoForm({
   const [state, action, pending] = useActionState<AgendaState, FormData>(salvarAgendamento, {});
   const [itens, setItens] = useState<ItemAgendamento[]>(a?.itens ?? []);
   const [hora, setHora] = useState(a ? hhmmDeMinutos(minutosLocal(a.inicio)) : novoEm.hora);
+  const [data, setData] = useState(a ? dataLocal(a.inicio) : novoEm.data);
+  const [temChoque, setTemChoque] = useState(false);
   const [valorManual, setValorManual] = useState<string | null>(a ? numeroParaCampo(a.valor_total) : null);
   // "Marcar mesmo assim": guarda a confirmação num campo escondido e reenvia o formulário
   // depois de atualizar a tela (o botão some ao confirmar e não podia ser ele a enviar).
@@ -325,11 +330,20 @@ function AgendamentoForm({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label htmlFor="data">Data</Label>
-            <CampoData id="data" name="data" defaultValue={a ? dataLocal(a.inicio) : novoEm.data} required />
+            <CampoData id="data" name="data" value={data} onChange={setData} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="hora">Horário</Label>
-            <CampoHora id="hora" name="hora" value={hora} onChange={setHora} required />
+            <HorarioLivre
+              data={data}
+              hora={hora}
+              onHora={setHora}
+              duracao={itens.reduce((t, i) => t + i.duracao_min, 0)}
+              intervalo={intervalo}
+              ignorarId={a?.id ?? null}
+              editavel={editavel}
+              onChoque={setTemChoque}
+            />
           </div>
         </div>
 
@@ -434,11 +448,120 @@ function AgendamentoForm({
       )}
 
       {editavel && (
-        <Button type="submit" size="lg" className="w-full" disabled={pending || itens.length === 0}>
+        <Button type="submit" size="lg" className="w-full" disabled={pending || itens.length === 0 || temChoque}>
           {pending && <Loader2 className="animate-spin" />}
           {a ? "Salvar alterações" : "Agendar"}
         </Button>
       )}
     </form>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Horário: só oferece os horários livres do dia (não deixa marcar duas clientes juntas).
+// "Outro horário" serve para fora do expediente (ex.: 06:30) — choque com outra cliente nunca passa.
+// ---------------------------------------------------------------------------
+function HorarioLivre({
+  data,
+  hora,
+  onHora,
+  duracao,
+  intervalo,
+  ignorarId,
+  editavel,
+  onChoque,
+}: {
+  onChoque: (sim: boolean) => void;
+  data: string;
+  hora: string;
+  onHora: (h: string) => void;
+  duracao: number;
+  intervalo: number;
+  ignorarId: string | null;
+  editavel: boolean;
+}) {
+  const [ocupacao, setOcupacao] = useState<OcupacaoDia | null>(null);
+  const [carregando, setCarregando] = useState(false);
+  const [outro, setOutro] = useState(false);
+  const [agora, setAgora] = useState<{ dia: string; min: number } | null>(null);
+
+  useEffect(() => {
+    const iso = new Date().toISOString();
+    setAgora({ dia: dataLocal(iso), min: minutosLocal(iso) });
+  }, []);
+
+  useEffect(() => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return setOcupacao(null);
+    let vivo = true;
+    setCarregando(true);
+    ocupacaoDoDia(data, ignorarId)
+      .then((o) => vivo && setOcupacao(o))
+      .finally(() => vivo && setCarregando(false));
+    return () => {
+      vivo = false;
+    };
+  }, [data, ignorarId]);
+
+  const livres = useMemo(
+    () =>
+      ocupacao
+        ? horariosLivres(ocupacao, duracao, intervalo, 15, agora && agora.dia === data && !ignorarId ? agora.min : null)
+        : [],
+    [ocupacao, duracao, intervalo, agora, data, ignorarId]
+  );
+  const minHora = /^\d{2}:\d{2}$/.test(hora) ? minutosDeHHMM(hora) : null;
+  const choque = ocupacao && minHora != null ? choqueCom(ocupacao, minHora, Math.max(duracao, 15), intervalo) : null;
+  const naLista = minHora != null && livres.includes(minHora);
+  useEffect(() => onChoque(!!choque), [choque, onChoque]);
+
+  // Horário que não está na lista: se não choca com ninguém (ex.: fora do expediente), vira "outro";
+  // se choca, limpa para escolher um livre.
+  useEffect(() => {
+    if (!ocupacao || !editavel || minHora == null || naLista) return;
+    if (choque) {
+      if (!outro) onHora("");
+    } else setOutro(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ocupacao, naLista]);
+
+  return (
+    <div className="space-y-1.5">
+      <input type="hidden" name="hora" value={hora} />
+      {outro ? (
+        <CampoHora id="hora" value={hora} onChange={onHora} required />
+      ) : (
+        <NativeSelect id="hora" value={naLista ? hora : ""} onChange={(e) => onHora(e.target.value)} required disabled={carregando}>
+          <option value="">{carregando ? "Carregando…" : livres.length ? "Escolha" : "Sem horário livre"}</option>
+          {livres.map((m) => (
+            <option key={m} value={hhmmDeMinutos(m)}>
+              {hhmmDeMinutos(m)}
+            </option>
+          ))}
+        </NativeSelect>
+      )}
+      {editavel && (
+        <button
+          type="button"
+          className="text-muted-foreground text-xs underline"
+          onClick={() => {
+            setOutro(!outro);
+            if (outro && !naLista) onHora("");
+          }}
+        >
+          {outro ? "Ver só os horários livres" : "Outro horário (fora do expediente)"}
+        </button>
+      )}
+      {choque && (
+        <p className="text-destructive text-xs font-medium">
+          Choca com {choque.quem} ({hhmmDeMinutos(choque.de)}–{hhmmDeMinutos(choque.ate)}). Escolha outro horário.
+        </p>
+      )}
+      {!outro && !carregando && ocupacao && livres.length === 0 && (
+        <p className="text-xs text-amber-800">
+          {ocupacao.abre == null ? "O studio não abre neste dia." : "Nenhum horário livre neste dia para esses serviços."}
+        </p>
+      )}
+    </div>
   );
 }
