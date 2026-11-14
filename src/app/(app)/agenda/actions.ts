@@ -14,12 +14,62 @@ import {
   hhmmDeMinutos,
   minutosDeHHMM,
   paraISO,
+  OFFSET,
+  OCUPA_AGENDA,
+  somarDias,
+  minutosLocal,
+  type FaixaOcupada,
+  type OcupacaoDia,
   type ItemAgendamento,
   type StatusAgendamento,
 } from "@/lib/agenda";
 import { falha, mensagemErroBanco, sucesso, type AcaoState } from "@/lib/acoes";
 
-export type AgendaState = AcaoState & { foraDoHorario?: string };
+export type AgendaState = AcaoState & {
+  foraDoHorario?: string;
+  /** depois de salvar: para a mensagem de WhatsApp "seu agendamento foi marcado" */
+  marcado?: { nome: string; whatsapp: string | null; inicio: string; servicos: string; remarcado: boolean };
+};
+
+/** O que já está ocupado num dia (para a tela oferecer só horários livres). */
+export async function ocupacaoDoDia(data: string, ignorarId: string | null): Promise<OcupacaoDia | null> {
+  await getPerfil();
+  if (!isDataISO(data)) return null;
+  const supabase = await createClient();
+  const ini = `${data}T00:00:00${OFFSET}`;
+  const fim = `${somarDias(data, 1)}T00:00:00${OFFSET}`;
+  // minutos do dia, cortando o que começa antes ou termina depois dele
+  const noDia = (iso: string, ehFim: boolean) =>
+    dataLocal(iso) < data ? 0 : dataLocal(iso) > data || (ehFim && minutosLocal(iso) === 0) ? 24 * 60 : minutosLocal(iso);
+
+  let consulta = supabase
+    .from("agendamentos")
+    .select("id, inicio, fim_ocupado, cliente:clientes(nome)")
+    .in("status", OCUPA_AGENDA)
+    .lt("inicio", fim)
+    .gt("fim_ocupado", ini);
+  if (ignorarId) consulta = consulta.neq("id", ignorarId);
+  const [ags, h, bl] = await Promise.all([
+    consulta,
+    supabase.from("horarios_funcionamento").select("aberto, abre, fecha, pausa_inicio, pausa_fim").eq("dia_semana", diaDaSemana(data)).limit(1).maybeSingle(),
+    supabase.from("bloqueios_agenda").select("inicio, fim, motivo").lt("inicio", fim).gt("fim", ini),
+  ]);
+  if (ags.error) return null;
+
+  const fechados: FaixaOcupada[] = (bl.data ?? []).map((b) => ({ de: noDia(b.inicio, false), ate: noDia(b.fim, true), quem: b.motivo }));
+  if (h.data?.aberto && h.data.pausa_inicio && h.data.pausa_fim)
+    fechados.push({ de: minutosDeHHMM(h.data.pausa_inicio), ate: minutosDeHHMM(h.data.pausa_fim), quem: "Pausa" });
+  return {
+    abre: h.data?.aberto ? minutosDeHHMM(h.data.abre) : null,
+    fecha: h.data?.aberto ? minutosDeHHMM(h.data.fecha) : null,
+    ocupados: (ags.data ?? []).map((a) => ({
+      de: noDia(a.inicio, false),
+      ate: noDia(a.fim_ocupado, true),
+      quem: (a.cliente as unknown as { nome: string } | null)?.nome ?? "outra cliente",
+    })),
+    fechados,
+  };
+}
 
 function revalidar() {
   revalidatePath("/agenda");
@@ -120,12 +170,24 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
 
   if (error) {
     if (error.code === "23P01")
-      return falha("Esse horário já está ocupado (contando o intervalo entre clientes). Escolha outro.");
+      return falha("O banco ainda trava horários sobrepostos: rode a migração 0016 no Supabase.");
     return falha(mensagemErroBanco(error));
   }
 
   revalidar();
-  return sucesso();
+  const { data: cli } = await supabase.from("clientes").select("nome, whatsapp").eq("id", clienteId).maybeSingle();
+  const novoInicio = paraISO(data, hora);
+  const anterior = String(formData.get("inicio_anterior") ?? "");
+  return {
+    ...sucesso(),
+    marcado: {
+      nome: cli?.nome ?? clienteNome,
+      whatsapp: cli?.whatsapp ?? null,
+      inicio: novoInicio,
+      servicos: descricaoItens(itens),
+      remarcado: !!id && !!anterior && new Date(anterior).getTime() !== new Date(novoInicio).getTime(),
+    },
+  };
 }
 
 export async function mudarStatus(id: string, status: StatusAgendamento): Promise<AcaoState> {
@@ -137,7 +199,6 @@ export async function mudarStatus(id: string, status: StatusAgendamento): Promis
     .update({ status, ...(status === "confirmado" ? { confirmado_em: new Date().toISOString() } : {}) })
     .eq("id", id);
   if (error) {
-    if (error.code === "23P01") return falha("Não dá para reabrir: o horário já foi ocupado por outra cliente.");
     return falha(mensagemErroBanco(error));
   }
   revalidar();

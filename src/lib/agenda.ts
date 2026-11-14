@@ -107,3 +107,60 @@ export function mensagemConfirmacao(a: Pick<Agendamento, "cliente_nome" | "inici
   const hora = hhmmDeMinutos(minutosLocal(a.inicio));
   return `Oi, ${primeiro}! Tudo bem? Passando para confirmar seu horário de ${descricaoItens(a.itens)} ${dia}, às ${hora}, no Studio Lilian Santos. Posso confirmar? 💛`;
 }
+
+// ---------------------------------------------------------------------------
+// Horários livres para marcar (só oferece o que não choca com outra cliente)
+// ---------------------------------------------------------------------------
+export type FaixaOcupada = { de: number; ate: number; quem: string };
+
+export type OcupacaoDia = {
+  /** horário de funcionamento do dia (minutos); null = studio fechado nesse dia */
+  abre: number | null;
+  fecha: number | null;
+  /** atendimentos do dia: início até o fim do intervalo de arrumar a sala */
+  ocupados: FaixaOcupada[];
+  /** horários fechados (botão "Fechar horário") e pausa */
+  fechados: FaixaOcupada[];
+};
+
+/** Atendimento que choca com um novo que vai de `inicio` até `inicio + duracao + intervalo`. */
+export function choqueCom(o: OcupacaoDia, inicio: number, duracao: number, intervalo: number) {
+  const fim = inicio + duracao + intervalo;
+  return o.ocupados.find((x) => x.de < fim && x.ate > inicio) ?? null;
+}
+
+/**
+ * Inícios possíveis no dia (de `passo` em `passo` minutos), dentro do horário de funcionamento,
+ * sem chocar com outro atendimento nem com horário fechado. `aPartirDe`: hoje, não oferece o que já passou.
+ */
+export function horariosLivres(
+  o: OcupacaoDia,
+  duracao: number,
+  intervalo: number,
+  passo = 15,
+  aPartirDe: number | null = null
+) {
+  if (o.abre == null || o.fecha == null) return [];
+  const dur = Math.max(duracao, passo);
+  const livres: number[] = [];
+  const comeco = Math.max(o.abre, aPartirDe != null ? Math.ceil(aPartirDe / passo) * passo : o.abre);
+  for (let m = comeco; m + dur <= o.fecha; m += passo) {
+    if (choqueCom(o, m, dur, intervalo)) continue;
+    if (o.fechados.some((f) => f.de < m + dur && f.ate > m)) continue;
+    livres.push(m);
+  }
+  return livres;
+}
+
+/** WhatsApp logo depois de marcar: "Olá, Fulana! Seu agendamento foi marcado para sábado, 15/11, às 10:00…" */
+export function mensagemMarcado(m: { nome: string; inicio: string; servicos: string; remarcado: boolean }) {
+  const primeiro = m.nome.split(" ")[0];
+  const dia = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TIMEZONE,
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(m.inicio));
+  const hora = hhmmDeMinutos(minutosLocal(m.inicio));
+  return `Olá, ${primeiro}! Seu agendamento no Studio Lilian Santos foi ${m.remarcado ? "remarcado" : "marcado"} para ${dia}, às ${hora}${m.servicos ? ` (${m.servicos})` : ""}. Qualquer dúvida, é só chamar 💛`;
+}
