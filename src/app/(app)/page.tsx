@@ -9,7 +9,7 @@ import { AcoesRapidas } from "@/components/acoes-rapidas";
 import { AgendaHoje } from "@/components/agenda-hoje";
 import { ChecklistHoje } from "@/components/checklist-hoje";
 import { createClient } from "@/lib/supabase/server";
-import type { TaxaPagamento } from "@/lib/configuracoes";
+import type { Servico, TaxaPagamento } from "@/lib/configuracoes";
 import { hojeISO } from "@/lib/financeiro";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -39,12 +39,24 @@ export default async function InicioPage() {
 
   // Dados do formulário de venda/despesa
   const supabase = await createClient();
-  const [taxas, servicos, produtos, clientes] = await Promise.all([
+  const [taxas, servicos, produtos, clientes, config] = await Promise.all([
     supabase.from("taxas_pagamento").select("forma, parcelas, taxa_percentual, ativo"),
-    supabase.from("servicos").select("nome, preco").eq("ativo", true).order("nome"),
+    supabase
+      .from("servicos")
+      .select("id, nome, categoria, duracao_min, preco, retorno_dias, ativo")
+      .eq("ativo", true)
+      .order("categoria")
+      .order("nome"),
     supabase.from("produtos").select("id, nome, categoria, preco, estoque, controla_estoque").eq("ativo", true).order("nome"),
     supabase.from("clientes").select("nome").order("nome"),
+    supabase.from("configuracoes").select("intervalo_min").eq("id", 1).maybeSingle(),
   ]);
+  // Para abrir o agendamento direto no Início (sem carregar a Agenda)
+  const agenda = {
+    hoje,
+    intervalo: config.data?.intervalo_min ?? 10,
+    servicos: (servicos.data ?? []).map((s) => ({ ...s, preco: Number(s.preco) })) as Servico[],
+  };
   const dados = {
     hoje,
     taxas: (taxas.data ?? []).map((t) => ({ ...t, taxa_percentual: Number(t.taxa_percentual) })) as TaxaPagamento[],
@@ -56,7 +68,7 @@ export default async function InicioPage() {
 
   return (
     <div className="space-y-6">
-      <AcoesRapidas dados={dados} />
+      <AcoesRapidas dados={dados} agenda={agenda} />
 
       <div>
         <p className="text-muted-foreground text-sm first-letter:uppercase">{formatDataExtenso(new Date())}</p>
