@@ -517,6 +517,7 @@ function HorarioLivre({
 }) {
   const [ocupacao, setOcupacao] = useState<OcupacaoDia | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [falhou, setFalhou] = useState(false);
   const [outro, setOutro] = useState(false);
   const [agora, setAgora] = useState<{ dia: string; min: number } | null>(null);
 
@@ -529,11 +530,35 @@ function HorarioLivre({
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return setOcupacao(null);
     let vivo = true;
     setCarregando(true);
+    setFalhou(false);
+    // Se a consulta falhar ou demorar (internet fraca), libera digitar o horário em vez de travar
+    const limite = setTimeout(() => {
+      if (!vivo) return;
+      setCarregando(false);
+      setFalhou(true);
+      setOutro(true);
+    }, 8000);
     ocupacaoDoDia(data, ignorarId)
-      .then((o) => vivo && setOcupacao(o))
-      .finally(() => vivo && setCarregando(false));
+      .then((o) => {
+        if (!vivo) return;
+        setOcupacao(o);
+        if (!o) {
+          setFalhou(true);
+          setOutro(true);
+        }
+      })
+      .catch(() => {
+        if (!vivo) return;
+        setFalhou(true);
+        setOutro(true);
+      })
+      .finally(() => {
+        clearTimeout(limite);
+        if (vivo) setCarregando(false);
+      });
     return () => {
       vivo = false;
+      clearTimeout(limite);
     };
   }, [data, ignorarId]);
 
@@ -568,7 +593,7 @@ function HorarioLivre({
       {outro ? (
         <CampoHora id="hora" value={hora} onChange={onHora} required />
       ) : (
-        <NativeSelect id="hora" value={naLista ? hora : ""} onChange={(e) => onHora(e.target.value)} required disabled={carregando}>
+        <NativeSelect id="hora" value={naLista ? hora : ""} onChange={(e) => onHora(e.target.value)} required>
           <option value="">{carregando ? "Carregando…" : livres.length ? "Escolha" : "Sem horário livre"}</option>
           {livres.map((m) => (
             <option key={m} value={hhmmDeMinutos(m)}>
@@ -588,6 +613,11 @@ function HorarioLivre({
         >
           {outro ? "Ver só os horários livres" : "Outro horário (digitar)"}
         </button>
+      )}
+      {falhou && (
+        <p className="text-muted-foreground text-xs">
+          Não consegui conferir os horários ocupados agora: digite o horário.
+        </p>
       )}
       {choque && (
         <p className="text-destructive text-xs font-medium">
