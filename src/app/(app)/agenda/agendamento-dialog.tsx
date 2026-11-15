@@ -36,6 +36,8 @@ import {
   minutosLocal,
   choqueCom,
   horariosLivres,
+  minutosDoCurso,
+  type CursoAgenda,
   mensagemMarcado,
   STATUS,
   type Agendamento,
@@ -56,6 +58,8 @@ type Props = {
   clientes: string[];
   taxas: TaxaPagamento[];
   intervalo: number;
+  /** cursos (produtos da categoria Cursos) — aparecem numa seção própria */
+  cursos?: CursoAgenda[];
 };
 
 export function AgendamentoDialog(props: Props) {
@@ -263,6 +267,7 @@ function AgendamentoForm({
   servicos,
   clientes,
   intervalo,
+  cursos,
   onFechar,
 }: Props & { onFechar: () => void }) {
   const [state, action, pending] = useActionState<AgendaState, FormData>(salvarAgendamento, {});
@@ -305,6 +310,17 @@ function AgendamentoForm({
   }, [servicos]);
 
   function adicionar(id: string) {
+    if (id.startsWith("curso:")) {
+      const c = cursos?.find((x) => x.id === id.slice(6));
+      if (!c) return;
+      const dias = c.duracao_dias == null ? 1 : Math.max(1, Math.ceil(c.duracao_dias));
+      setItens((atual) => [
+        ...atual,
+        { servico_id: null, nome: c.nome, duracao_min: minutosDoCurso(c.duracao_dias), valor: c.preco, curso_dias: dias },
+      ]);
+      setValorManual(null);
+      return;
+    }
     const s = servicos.find((x) => x.id === id);
     if (!s) return;
     setItens((atual) => [...atual, { servico_id: s.id, nome: s.nome, duracao_min: s.duracao_min, valor: s.preco }]);
@@ -376,7 +392,7 @@ function AgendamentoForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="adicionar-servico">Serviços</Label>
+          <Label htmlFor="adicionar-servico">Agendamento</Label>
           {itens.length > 0 && (
             <ul className="bg-card divide-y rounded-lg border">
               {itens.map((i, idx) => (
@@ -395,7 +411,7 @@ function AgendamentoForm({
           )}
           {editavel && (
             <NativeSelect id="adicionar-servico" value="" onChange={(e) => adicionar(e.target.value)}>
-              <option value="">{itens.length ? "+ Adicionar outro serviço" : "Escolha o serviço"}</option>
+              <option value="">{itens.length ? "+ Adicionar outro serviço ou curso" : "Escolha o serviço ou curso"}</option>
               {porCategoria.map(([cat, lista]) => (
                 <optgroup key={cat} label={cat}>
                   {lista.map((s) => (
@@ -405,7 +421,22 @@ function AgendamentoForm({
                   ))}
                 </optgroup>
               ))}
+              {cursos && cursos.length > 0 && (
+                <optgroup label="Cursos">
+                  {cursos.map((c) => (
+                    <option key={c.id} value={`curso:${c.id}`}>
+                      {c.nome} · {c.duracao_dias == null ? "1 dia" : c.duracao_dias <= 0.5 ? "meio dia (4h)" : `${c.duracao_dias} ${c.duracao_dias === 1 ? "dia" : "dias"}`} · {formatMoeda(c.preco)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </NativeSelect>
+          )}
+          {!a && itens.some((i) => (i.curso_dias ?? 1) > 1) && (
+            <p className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-950">
+              Turma de {Math.max(...itens.map((i) => i.curso_dias ?? 1))} dias: os dias seguintes são marcados sozinhos,
+              no mesmo horário, nos próximos dias abertos (sem valor — a venda entra no 1º dia).
+            </p>
           )}
           {duracao > 0 && (
             <p className="bg-secondary/60 rounded-md px-3 py-2 text-sm">

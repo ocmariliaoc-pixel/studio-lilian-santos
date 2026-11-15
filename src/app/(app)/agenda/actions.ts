@@ -14,6 +14,7 @@ import {
   hhmmDeMinutos,
   minutosDeHHMM,
   paraISO,
+  DIA_DE_CURSO,
   OFFSET,
   OCUPA_AGENDA,
   somarDias,
@@ -177,6 +178,32 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
     return falha(mensagemErroBanco(error));
   }
 
+  // Curso de vários dias: marca os dias seguintes da turma (próximos dias abertos, mesmo horário, sem valor)
+  if (!id) {
+    for (const item of itens.filter((i) => (i.curso_dias ?? 1) > 1)) {
+      const total = item.curso_dias!;
+      const { data: hs } = await supabase.from("horarios_funcionamento").select("dia_semana, aberto");
+      const fechado = new Set((hs ?? []).filter((x) => !x.aberto).map((x) => x.dia_semana as number));
+      let dia = data;
+      for (let k = 2; k <= total; k++) {
+        let tentativas = 0;
+        do {
+          dia = somarDias(dia, 1);
+          tentativas++;
+        } while (fechado.has(diaDaSemana(dia)) && tentativas < 14);
+        await supabase.rpc("salvar_agendamento", {
+          p_id: null,
+          p_cliente_id: clienteId,
+          p_inicio: paraISO(dia, hora),
+          p_itens: [{ servico_id: null, nome: `${item.nome} — dia ${k} de ${total}`, duracao_min: 480, valor: 0 }],
+          p_valor_total: 0,
+          p_marcado_por: marcadoPor,
+          p_observacoes: "Continuação da turma (marcado junto com o 1º dia)",
+        });
+      }
+    }
+  }
+
   revalidar();
   const { data: cli } = await supabase.from("clientes").select("nome, whatsapp").eq("id", clienteId).maybeSingle();
   const novoInicio = paraISO(data, hora);
@@ -185,7 +212,8 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
     ...sucesso(),
     marcado: {
       nome: cli?.nome ?? clienteNome,
-      whatsapp: cli?.whatsapp ?? null,
+      // número do cadastro; se ainda não estiver lá, o que foi digitado agora
+      whatsapp: cli?.whatsapp ?? whatsapp ?? null,
       inicio: novoInicio,
       servicos: descricaoItens(itens),
       remarcado: !!id && !!anterior && new Date(anterior).getTime() !== new Date(novoInicio).getTime(),
@@ -229,8 +257,11 @@ export async function marcarRealizado(
   if (error || !ag) return falha("Agendamento não encontrado.");
 
   const { data: ja } = await supabase.from("lancamentos").select("id").eq("agendamento_id", id).limit(1);
-  if (!ja?.length) {
-    const itens = ((ag.itens as { nome: string; ordem: number }[]) ?? []).sort((a, b) => a.ordem - b.ordem);
+  const itensAg = ((ag.itens as { nome: string; ordem: number }[]) ?? []).sort((a, b) => a.ordem - b.ordem);
+  // Dias seguintes de uma turma de curso: só marca como concluído (a venda já entrou no 1º dia)
+  const soContinuacao = itensAg.length > 0 && itensAg.every((i) => DIA_DE_CURSO.test(i.nome));
+  if (!ja?.length && !soContinuacao) {
+    const itens = itensAg;
     const cliente = ag.cliente as unknown as { nome: string } | null;
     const { error: e2 } = await supabase.from("lancamentos").insert({
       tipo: "entrada",
@@ -238,7 +269,7 @@ export async function marcarRealizado(
       descricao: descricaoItens(itens) || "Atendimento",
       cliente_nome: cliente?.nome ?? null,
       cliente_id: ag.cliente_id,
-      categoria: valorCobrado === 0 ? "Brinde" : "Serviço",
+      categoria: valorCobrado === 0 ? "Brinde" : itens.some((i) => /^curso/i.test(i.nome)) ? "Curso" : "Serviço",
       valor: Math.round(valorCobrado * 100) / 100,
       forma_pagamento: valorCobrado === 0 ? null : forma,
       parcelas: forma === "credito_parcelado" ? parcelas : 1,

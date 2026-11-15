@@ -5,6 +5,7 @@ import { CalendarPlus, Receipt, ShoppingBag } from "lucide-react";
 import { LancamentoDialog, type DadosFormulario } from "@/app/(app)/financeiro/lancamento-form";
 import type { TipoLancamento } from "@/lib/financeiro";
 import type { Servico } from "@/lib/configuracoes";
+import type { CursoAgenda } from "@/lib/agenda";
 import { AgendamentoDialog } from "@/app/(app)/agenda/agendamento-dialog";
 
 /** Topo do Início: registrar venda, agendar atendimento e lançar despesa. */
@@ -13,7 +14,7 @@ export function AcoesRapidas({
   agenda,
 }: {
   dados: DadosFormulario;
-  agenda: { hoje: string; intervalo: number; servicos: Servico[] };
+  agenda: { hoje: string; intervalo: number; servicos: Servico[]; cursos: CursoAgenda[] };
 }) {
   const [aberto, setAberto] = useState<TipoLancamento | null>(null);
   // O agendamento abre aqui mesmo (antes ia para a Agenda e carregava a página inteira)
@@ -53,6 +54,7 @@ export function AcoesRapidas({
         clientes={dados.clientes}
         taxas={dados.taxas}
         intervalo={agenda.intervalo}
+        cursos={agenda.cursos}
       />
     </>
   );
