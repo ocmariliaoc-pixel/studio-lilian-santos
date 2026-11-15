@@ -120,7 +120,10 @@ function LancamentoForm({
   const [valorTexto, setValorTexto] = useState(numeroParaCampo(lancamento?.valor));
   const [forma, setForma] = useState<FormaPagamento | "">(lancamento?.forma_pagamento ?? "");
   const [parcelas, setParcelas] = useState(lancamento?.parcelas && lancamento.parcelas > 1 ? lancamento.parcelas : 2);
-  const [categoria, setCategoria] = useState(lancamento?.categoria ?? (tipo === "entrada" ? "Serviço" : "Outros"));
+  // "Registrar venda" é só para vendas (produto, curso, avulso). Serviço entra no caixa pela agenda
+  // ("Concluído"); lançamentos antigos de serviço continuam editáveis.
+  const [categoria, setCategoria] = useState(lancamento?.categoria ?? (tipo === "entrada" ? "Produto" : "Outros"));
+  const categoriasEntrada = CATEGORIAS_ENTRADA.filter((c) => c !== "Serviço" || lancamento?.categoria === "Serviço");
   const [descricao, setDescricao] = useState(lancamento?.descricao ?? "");
   const [produtoId, setProdutoId] = useState(lancamento?.produto_id ?? "");
   const [quantidade, setQuantidade] = useState(lancamento?.quantidade ?? 1);
@@ -206,7 +209,7 @@ function LancamentoForm({
 
   function trocarTipo(t: TipoLancamento) {
     setTipo(t);
-    setCategoria(t === "entrada" ? "Serviço" : "Outros");
+    setCategoria(t === "entrada" ? "Produto" : "Outros");
     setServicosEscolhidos([]);
     setProdutoId("");
   }
@@ -261,12 +264,17 @@ function LancamentoForm({
             value={ehBrinde ? "Brinde" : categoria}
             onChange={(e) => setCategoria(e.target.value)}
           >
-            {(tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA).map((c) => (
+            {(tipo === "entrada" ? categoriasEntrada : CATEGORIAS_SAIDA).map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
             ))}
           </NativeSelect>
+          {tipo === "entrada" && !lancamento && (
+            <p className="text-muted-foreground text-xs">
+              Atendimento agendado entra no caixa ao marcar <b>Concluído</b> na Agenda — não lance aqui.
+            </p>
+          )}
         </div>
         {vendeProduto && (
           <div className="bg-secondary/40 space-y-3 rounded-lg p-3">
