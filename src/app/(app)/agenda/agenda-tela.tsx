@@ -20,6 +20,7 @@ import {
   somarDias,
   STATUS,
   type Agendamento,
+  type CursoAgenda,
 } from "@/lib/agenda";
 import { ETIQUETAS } from "@/lib/tarefas";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ export type DadosAgenda = {
   horarios: HorarioDia[];
   intervalo: number;
   servicos: Servico[];
+  cursos?: CursoAgenda[];
   clientes: string[];
   taxas: TaxaPagamento[];
   bloqueios: Bloqueio[];
@@ -228,6 +230,7 @@ export function AgendaTela(props: DadosAgenda) {
         clientes={props.clientes}
         taxas={props.taxas}
         intervalo={props.intervalo}
+        cursos={props.cursos}
       />
     </div>
   );

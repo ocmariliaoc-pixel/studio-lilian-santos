@@ -8,7 +8,20 @@ export type ItemAgendamento = {
   nome: string;
   duracao_min: number;
   valor: number;
+  /** curso: quantos dias a turma dura (os dias seguintes são marcados sozinhos ao criar) */
+  curso_dias?: number;
 };
+
+/** Curso (produto da categoria Cursos) oferecido no agendamento */
+export type CursoAgenda = { id: string; nome: string; preco: number; duracao_dias: number | null };
+
+/** Horas que um curso ocupa na agenda: meio dia = 4h; dia inteiro = 8h. */
+export function minutosDoCurso(dias: number | null) {
+  return dias != null && dias <= 0.5 ? 240 : 480;
+}
+
+/** Item dos dias seguintes de uma turma ("Curso X — dia 2 de 3"): não gera venda no caixa. */
+export const DIA_DE_CURSO = /— dia \d+ de \d+$/;
 
 export type Agendamento = {
   id: string;

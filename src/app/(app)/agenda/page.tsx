@@ -31,7 +31,7 @@ export default async function AgendaPage({
   const deBusca = [de, hoje].sort()[0];
 
   const supabase = await createClient();
-  const [ags, horarios, config, servicos, clientes, taxas, bloqueios] = await Promise.all([
+  const [ags, horarios, config, servicos, clientes, taxas, cursos, bloqueios] = await Promise.all([
     supabase
       .from("agendamentos")
       .select(
@@ -50,6 +50,12 @@ export default async function AgendaPage({
       .order("nome"),
     supabase.from("clientes").select("nome").order("nome"),
     supabase.from("taxas_pagamento").select("forma, parcelas, taxa_percentual, ativo"),
+    supabase
+      .from("produtos")
+      .select("id, nome, categoria, preco, duracao_dias")
+      .eq("categoria", "Cursos")
+      .eq("ativo", true)
+      .order("nome"),
     supabase
       .from("bloqueios_agenda")
       .select("id, inicio, fim, motivo")
@@ -123,6 +129,12 @@ export default async function AgendaPage({
       abrirId={sp.a ?? null}
       abrirNovo={sp.novo === "1"}
       lembrete={<LembreteTarefas />}
+      cursos={(cursos.data ?? []).filter((c) => c.categoria === "Cursos").map((c) => ({
+        id: c.id,
+        nome: c.nome,
+        preco: Number(c.preco),
+        duracao_dias: c.duracao_dias == null ? null : Number(c.duracao_dias),
+      }))}
     />
   );
 }

@@ -47,12 +47,16 @@ export default async function InicioPage() {
       .eq("ativo", true)
       .order("categoria")
       .order("nome"),
-    supabase.from("produtos").select("id, nome, categoria, preco, estoque, controla_estoque").eq("ativo", true).order("nome"),
+    supabase.from("produtos").select("id, nome, categoria, preco, estoque, controla_estoque, duracao_dias").eq("ativo", true).order("nome"),
     supabase.from("clientes").select("nome").order("nome"),
     supabase.from("configuracoes").select("intervalo_min").eq("id", 1).maybeSingle(),
   ]);
   // Para abrir o agendamento direto no Início (sem carregar a Agenda)
+  const cursos = (produtos.data ?? [])
+    .filter((p) => p.categoria === "Cursos")
+    .map((p) => ({ id: p.id, nome: p.nome, preco: Number(p.preco), duracao_dias: p.duracao_dias == null ? null : Number(p.duracao_dias) }));
   const agenda = {
+    cursos,
     hoje,
     intervalo: config.data?.intervalo_min ?? 10,
     servicos: (servicos.data ?? []).map((s) => ({ ...s, preco: Number(s.preco) })) as Servico[],
