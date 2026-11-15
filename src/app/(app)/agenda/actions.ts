@@ -158,6 +158,8 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
   });
   if (!rc.ok) return { ...falha(rc.erro), parecidas: rc.parecidas };
   const clienteId = rc.id;
+  // Origem do agendamento também vira a origem da cliente, se ainda não tinha
+  if (marcadoPor) await supabase.from("clientes").update({ origem: marcadoPor }).eq("id", clienteId).is("origem", null);
 
   const { error } = await supabase.rpc("salvar_agendamento", {
     p_id: id,
