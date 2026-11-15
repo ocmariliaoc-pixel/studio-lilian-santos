@@ -101,3 +101,6 @@ export function mensagemAniversario(nome: string) {
   const primeiro = nome.split(" ")[0];
   return `Parabéns, ${primeiro}! 🎉 Hoje o dia é seu e todo o Studio Lilian Santos deseja um novo ciclo lindo, com muita saúde e autocuidado. Tem um mimo especial te esperando aqui no studio este mês 💛`;
 }
+
+/** De onde a cliente veio (campo Origem do agendamento e da ficha). */
+export const ORIGENS = ["Instagram", "WhatsApp", "Indicação", "Google", "Passou na frente", "Já é cliente", "Outro"];

@@ -27,7 +27,7 @@ import {
   type Servico,
   type TaxaPagamento,
 } from "@/lib/configuracoes";
-import { linkWhatsApp } from "@/lib/clientes";
+import { linkWhatsApp, ORIGENS } from "@/lib/clientes";
 import {
   dataLocal,
   hhmmDeMinutos,
@@ -67,7 +67,7 @@ export function AgendamentoDialog(props: Props) {
           <DialogTitle>{agendamento ? agendamento.cliente_nome : "Novo agendamento"}</DialogTitle>
           <DialogDescription>
             {agendamento
-              ? `${STATUS[agendamento.status].rotulo}${agendamento.cliente_nova === undefined ? "" : agendamento.cliente_nova ? " · Nova cliente (primeira vez)" : " · Cliente ativa"}${agendamento.marcado_por ? ` · marcado por ${agendamento.marcado_por}` : ""}`
+              ? `${STATUS[agendamento.status].rotulo}${agendamento.cliente_nova === undefined ? "" : agendamento.cliente_nova ? " · Nova cliente (primeira vez)" : " · Cliente ativa"}${agendamento.marcado_por ? ` · origem: ${agendamento.marcado_por}` : ""}`
               : "Escolha a cliente, o horário e os serviços."}
           </DialogDescription>
         </DialogHeader>
@@ -353,7 +353,7 @@ function AgendamentoForm({
       <fieldset disabled={!editavel} className="min-w-0 space-y-4">
         <div className="space-y-2">
           <Label htmlFor="cliente_nome">Cliente</Label>
-          <CampoCliente clientes={clientes} defaultValue={a?.cliente_nome} parecidasServidor={state.parecidas} required />
+          <CampoCliente clientes={clientes} defaultValue={a?.cliente_nome} parecidasServidor={state.parecidas} required exigirWhatsapp />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -440,8 +440,16 @@ function AgendamentoForm({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label htmlFor="marcado_por">Marcado por</Label>
-            <Input id="marcado_por" name="marcado_por" defaultValue={a?.marcado_por ?? ""} placeholder="Ex.: Instagram" />
+            <Label htmlFor="marcado_por">Origem</Label>
+            {/* gravado em agendamentos.marcado_por (de onde veio este agendamento) */}
+            <NativeSelect id="marcado_por" name="marcado_por" defaultValue={a?.marcado_por ?? ""}>
+              <option value="">Escolha…</option>
+              {[...ORIGENS, ...(a?.marcado_por && !ORIGENS.includes(a.marcado_por) ? [a.marcado_por] : [])].map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </NativeSelect>
           </div>
           <div className="space-y-2">
             <Label htmlFor="observacoes">Observações</Label>

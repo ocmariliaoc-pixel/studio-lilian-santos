@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { hojeISO } from "@/lib/financeiro";
 import type { ClienteResumo } from "@/lib/clientes";
 import type { Acompanhamento, Cupom } from "@/lib/acompanhamentos";
+import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { ErroMigracao } from "@/components/erro-migracao";
 import { ClientesLista } from "./clientes-lista";
@@ -39,7 +41,13 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
       <PageHeader
         titulo="Clientes"
         descricao="Leads, clientes e quanto cada uma gastou. Ficha completa e anamnese chegam na fase 3."
-      />
+      >
+        <Button asChild variant="outline">
+          <a href="/clientes/exportar">
+            <Download /> Baixar Excel
+          </a>
+        </Button>
+      </PageHeader>
       <ClientesLista
         clientes={clientes}
         hoje={hojeISO()}
