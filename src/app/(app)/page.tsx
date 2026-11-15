@@ -4,6 +4,7 @@ import { getPerfil, isAdmin } from "@/lib/auth";
 import { formatDataExtenso, saudacao } from "@/lib/format";
 import { lerStatusInventario } from "@/lib/produtos-server";
 import { AlertaInventario } from "@/components/alerta-inventario";
+import { AlertaExtrato } from "@/components/alerta-extrato";
 import { MensagensDoDia } from "@/components/mensagens-do-dia";
 import { AcoesRapidas } from "@/components/acoes-rapidas";
 import { AgendaHoje } from "@/components/agenda-hoje";
@@ -85,6 +86,8 @@ export default async function InicioPage() {
             : "Aqui ficam seus atendimentos do dia e as fichas das clientes."}
         </p>
       </div>
+
+      {admin && <AlertaExtrato hoje={hoje} />}
 
       <AlertaInventario status={inventario} />
 
