@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CampoCategoria } from "@/components/campo-categoria";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -193,18 +194,7 @@ function ProdutoForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="categoria">Categoria</Label>
-        <Input
-          id="categoria"
-          name="categoria"
-          list="categorias-produto"
-          defaultValue={produto?.categoria}
-          autoComplete="off"
-        />
-        <datalist id="categorias-produto">
-          {categorias.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
+        <CampoCategoria categorias={categorias} defaultValue={produto?.categoria} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
