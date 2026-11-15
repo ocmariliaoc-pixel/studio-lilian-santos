@@ -578,12 +578,14 @@ function HorarioLivre({
   //  - depois disso (ou ao editar um marcado): mostra no campo "outro", sem apagar (sobreposto só avisa).
   const sugerido = useRef<string | null>(null);
   useEffect(() => {
-    if (!ocupacao || !editavel || naLista) return;
-    if (!ignorarId && sugerido.current !== data) {
+    if (!ocupacao || !editavel) return;
+    // Só na primeira carga de cada dia: agendamento novo com horário ocupado ganha o primeiro livre.
+    // Depois disso, nunca troca o horário que a pessoa escolheu (bug: 9h30 virava 08:00).
+    if (sugerido.current !== data) {
       sugerido.current = data;
-      if (livres.length) return onHora(hhmmDeMinutos(livres[0]));
+      if (!ignorarId && !outro && !naLista && livres.length) return onHora(hhmmDeMinutos(livres[0]));
     }
-    if (minHora != null) setOutro(true);
+    if (!naLista && minHora != null) setOutro(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ocupacao, naLista]);
 

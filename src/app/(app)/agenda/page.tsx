@@ -4,12 +4,10 @@ import { hojeISO, isDataISO } from "@/lib/financeiro";
 import { dataLocal, inicioSemana, OFFSET, somarDias, type Agendamento } from "@/lib/agenda";
 import { ultimoDiaDoMes } from "@/lib/metas";
 import type { HorarioDia, Servico, TaxaPagamento } from "@/lib/configuracoes";
-import { getPerfil } from "@/lib/auth";
-import { situacao } from "@/lib/tarefas";
-import { lerTarefas } from "@/lib/tarefas-server";
 import { ErroMigracao } from "@/components/erro-migracao";
 import { PageHeader } from "@/components/page-header";
 import { AgendaTela } from "./agenda-tela";
+import { LembreteTarefas } from "@/components/lembrete-tarefas";
 
 export const metadata: Metadata = { title: "Agenda" };
 
@@ -70,15 +68,13 @@ export default async function AgendaPage({
 
   // Etiqueta nova/ativa: primeira visita de cada cliente (caixa ou atendimento concluído)
   const ids = [...new Set((ags.data ?? []).map((a) => a.cliente_id as string))];
-  const [visitasCaixa, visitasAgenda, perfil, tarefas] = await Promise.all([
+  const [visitasCaixa, visitasAgenda] = await Promise.all([
     ids.length
       ? supabase.from("lancamentos").select("cliente_id, data").in("cliente_id", ids).eq("tipo", "entrada").eq("cancelado", false)
       : Promise.resolve({ data: [] as { cliente_id: string; data: string }[] }),
     ids.length
       ? supabase.from("agendamentos").select("cliente_id, inicio").in("cliente_id", ids).eq("status", "realizado")
       : Promise.resolve({ data: [] as { cliente_id: string; inicio: string }[] }),
-    getPerfil(),
-    lerTarefas(supabase),
   ]);
   const primeiraVisita = new Map<string, string>();
   const anotar = (id: string, d: string) => {
@@ -87,10 +83,6 @@ export default async function AgendaPage({
   };
   for (const v of visitasCaixa.data ?? []) anotar(v.cliente_id, v.data);
   for (const v of visitasAgenda.data ?? []) anotar(v.cliente_id, dataLocal(v.inicio));
-  const tarefasPendentes = (tarefas ?? []).filter((t) => {
-    const s = situacao(t, hoje);
-    return t.responsavel_id === perfil.id && s.doDia && !s.feita;
-  }).length;
 
   const agendamentos: Agendamento[] = (ags.data ?? []).map((a) => {
     const cliente = a.cliente as unknown as { nome: string; whatsapp: string | null } | null;
@@ -130,7 +122,7 @@ export default async function AgendaPage({
       bloqueios={bloqueios.data ?? []}
       abrirId={sp.a ?? null}
       abrirNovo={sp.novo === "1"}
-      tarefasPendentes={tarefas ? tarefasPendentes : null}
+      lembrete={<LembreteTarefas />}
     />
   );
 }

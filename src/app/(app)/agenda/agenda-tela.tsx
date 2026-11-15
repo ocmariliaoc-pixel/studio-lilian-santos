@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { BellRing, ChevronLeft, ChevronRight, ListChecks, MessageCircle, Plus } from "lucide-react";
+import { BellRing, ChevronLeft, ChevronRight, MessageCircle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatMoeda } from "@/lib/format";
 import { hhmm, type HorarioDia, type Servico, type TaxaPagamento } from "@/lib/configuracoes";
@@ -17,7 +17,6 @@ import {
   mensagemConfirmacao,
   minutosDeHHMM,
   minutosLocal,
-  OCUPA_AGENDA,
   somarDias,
   STATUS,
   type Agendamento,
@@ -44,8 +43,8 @@ export type DadosAgenda = {
   bloqueios: Bloqueio[];
   abrirId?: string | null;
   abrirNovo?: boolean;
-  /** minhas tarefas pendentes hoje (null = checklist ainda não instalado) */
-  tarefasPendentes?: number | null;
+  /** aviso fixo (lembrete das tarefas), montado no servidor */
+  lembrete?: React.ReactNode;
 };
 
 export function AgendaTela(props: DadosAgenda) {
@@ -153,6 +152,8 @@ export function AgendaTela(props: DadosAgenda) {
         />
       </div>
 
+      {props.lembrete}
+
       {paraConfirmar.length > 0 && (
         <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
           <p className="flex items-center gap-2 text-sm font-semibold">
@@ -190,7 +191,6 @@ export function AgendaTela(props: DadosAgenda) {
       {visao === "dia" ? (
         <VisaoDia
           ehHoje={data === hoje}
-          tarefasPendentes={props.tarefasPendentes ?? null}
           bloqueios={bloqueios.filter((b) => dataLocal(b.inicio) <= data && dataLocal(b.fim) >= data)}
           agendamentos={agendamentos.filter((a) => dataLocal(a.inicio) === data)}
           horario={horarios.find((h) => h.dia_semana === diaDaSemana(data))}
@@ -233,22 +233,6 @@ export function AgendaTela(props: DadosAgenda) {
   );
 }
 
-const MIN_TAREFAS = 30;
-
-/** Primeiro espaço livre de 30 min no dia (depois de agora, se for hoje) para as tarefas. */
-function horarioTarefas(
-  abre: number,
-  fecha: number,
-  desde: number | null,
-  ocupados: { de: number; ate: number }[]
-) {
-  const inicio = Math.max(abre, desde != null ? Math.ceil(desde / 15) * 15 : abre);
-  for (let m = inicio; m + MIN_TAREFAS <= fecha; m += 15) {
-    if (!ocupados.some((o) => o.de < m + MIN_TAREFAS && o.ate > m)) return m;
-  }
-  return null;
-}
-
 function TagCliente({ nova }: { nova: boolean }) {
   const e = ETIQUETAS[nova ? "novos_clientes" : "clientes_ativos"];
   return (
@@ -260,7 +244,6 @@ function TagCliente({ nova }: { nova: boolean }) {
 
 function VisaoDia({
   ehHoje,
-  tarefasPendentes,
   bloqueios,
   agendamentos,
   horario,
@@ -268,7 +251,6 @@ function VisaoDia({
   onAbrir,
 }: {
   ehHoje: boolean;
-  tarefasPendentes: number | null;
   bloqueios: Bloqueio[];
   agendamentos: Agendamento[];
   horario: HorarioDia | undefined;
@@ -347,21 +329,6 @@ function VisaoDia({
     return lugar;
   }, [ativos]);
 
-  // Lembrete de 30 min para as tarefas: só uma sugestão, não bloqueia a agenda
-  const tarefasEm = horarioTarefas(
-    abre,
-    fecha,
-    agora,
-    [
-      ...agendamentos
-        .filter((a) => OCUPA_AGENDA.includes(a.status))
-        .map((a) => ({ de: minutosLocal(a.inicio), ate: minutosLocal(a.fim_ocupado) || 24 * 60 })),
-      ...bloqueios.map((b) => ({ de: minutosLocal(b.inicio), ate: minutosLocal(b.fim) || 24 * 60 })),
-      ...(pausa ? [pausa] : []),
-    ]
-  );
-  const mostrarTarefas = tarefasEm != null && (!ehHoje || agora != null);
-
   return (
     <div className="space-y-3">
       <p className="text-muted-foreground text-sm">
@@ -370,26 +337,6 @@ function VisaoDia({
           : "Studio fechado neste dia (dá para agendar mesmo assim)"}{" "}
         · {ativos.length} {ativos.length === 1 ? "atendimento" : "atendimentos"} · {formatMoeda(previsto)}
       </p>
-
-      {mostrarTarefas && (
-        <Link
-          href="/checklist"
-          className="flex items-center gap-3 rounded-xl border border-dashed border-violet-300 bg-violet-50/60 px-3 py-2.5 text-sm text-violet-950"
-        >
-          <ListChecks className="size-5 shrink-0 text-violet-700" />
-          <span className="min-w-0 flex-1">
-            <b>Lembrete: 30 min para as tarefas</b> · sugestão {hhmmDeMinutos(tarefasEm!)}–
-            {hhmmDeMinutos(tarefasEm! + MIN_TAREFAS)} (o horário continua livre para agendar)
-            {ehHoje && tarefasPendentes != null && (
-              <span className="block text-xs opacity-80">
-                {tarefasPendentes === 0
-                  ? "Suas tarefas de hoje estão em dia."
-                  : `${tarefasPendentes} ${tarefasPendentes === 1 ? "tarefa sua pendente" : "tarefas suas pendentes"} hoje · abrir checklist`}
-              </span>
-            )}
-          </span>
-        </Link>
-      )}
 
       <div
         ref={rolagem}
@@ -428,17 +375,6 @@ function VisaoDia({
           {/* toque num horário livre */}
           <div className="absolute inset-0 cursor-pointer" onClick={tocar} aria-label="Tocar para agendar" />
 
-          {/* lembrete das tarefas: só um lembrete — tocar nele abre um agendamento normal nesse horário */}
-          {mostrarTarefas && (
-            <button
-              type="button"
-              onClick={() => onNovo(hhmmDeMinutos(tarefasEm!))}
-              className="absolute right-1 left-1 flex items-start rounded-md border border-dashed border-violet-300 bg-violet-50/40 px-2 py-0.5 text-left text-[11px] font-medium text-violet-800"
-              style={{ top: (tarefasEm! - ini) * PX_POR_MIN, height: MIN_TAREFAS * PX_POR_MIN }}
-            >
-              {hhmmDeMinutos(tarefasEm!)} · lembrete: 30 min para as tarefas (horário livre, toque para agendar)
-            </button>
-          )}
 
           {bloqueios.map((b) => {
             const de = Math.max(ini, minutosLocal(b.inicio));
@@ -495,7 +431,7 @@ function VisaoDia({
 
       <p className="text-muted-foreground text-xs">
         Toque num horário livre para agendar. A faixa tracejada embaixo de cada atendimento é o intervalo
-        para arrumar a sala. O roxo tracejado é só um lembrete das tarefas: o horário continua livre.
+        para arrumar a sala.
         Atendimentos lado a lado = horários sobrepostos.
         Etiquetas: <b>Nova</b> = primeira vez no studio · <b>Ativa</b> = já é cliente.
       </p>
