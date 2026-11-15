@@ -441,18 +441,12 @@ function LancamentoForm({
           <Input
             id="descricao"
             name="descricao"
-            list="sugestoes-descricao"
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder={tipo === "entrada" ? "Ex.: Design + buço" : "Ex.: Compra de henna"}
             autoComplete="off"
             required
           />
-          <datalist id="sugestoes-descricao">
-            {dados.sugestoes.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
         </div>
 
         {tipo === "entrada" && (

@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CampoCategoria } from "@/components/campo-categoria";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
@@ -99,19 +100,7 @@ function ServicoForm({
 
       <div className="space-y-2">
         <Label htmlFor="categoria">Categoria</Label>
-        <Input
-          id="categoria"
-          name="categoria"
-          list="categorias"
-          defaultValue={servico?.categoria}
-          placeholder="Ex.: Facial"
-          autoComplete="off"
-        />
-        <datalist id="categorias">
-          {categorias.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
+        <CampoCategoria categorias={categorias} defaultValue={servico?.categoria} placeholder="Ex.: Facial" />
       </div>
 
       <div className="grid grid-cols-2 gap-3">

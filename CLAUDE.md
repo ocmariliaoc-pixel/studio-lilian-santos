@@ -199,6 +199,7 @@ A planilha de vendas da inauguração mostrou o que o Financeiro (Fase 5) precis
 - **Excel de clientes:** botão "Baixar Excel" em Clientes → `clientes/exportar/route.ts` (exceljs; uma linha por cliente com contato, status, origem, visitas, total gasto, ticket, última visita, último pagamento, próximo agendamento; datas e R$ como valores de verdade, filtro e cabeçalho fixo).
 - **Nome da cliente editável:** lápis ao lado do nome em Clientes (`clientes/nome-cliente.tsx`) → `renomear_cliente(id, nome)` (migração 0015, security definer: troca também `lancamentos.cliente_nome`; recusa nome de outra cliente e sugere Juntar).
 - **Serviços:** qualquer usuária ativa CADASTRA serviço novo (botão "Novo serviço" em Produtos e serviços › Serviços; policy da 0014); editar preço/duração de um existente continua só admin (Configurações → Serviços).
+- **Sem `<datalist>`:** a lista do navegador só mostra opções que combinam com o que já está escrito (a seta "some" depois de escolher). Categoria de produto/serviço usa `CampoCategoria` (`components/campo-categoria.tsx`: lista com todas + "+ Nova categoria…"); cliente usa `CampoCliente`.
 - **Formulários não resetam:** usar `<form onSubmit={semResetar(action)}>` (`lib/form.ts`), nunca `action={action}` — o React 19 limpa o formulário depois de cada envio e, num aviso/erro, a tela voltava com campos errados (horário 00:00, WhatsApp vazio) enquanto o estado guardava os antigos.
 - Variáveis de ambiente: ver `.env.example`.
 - Antes de commitar: `npm run lint` e `npm run build`.
