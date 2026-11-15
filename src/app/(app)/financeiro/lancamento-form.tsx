@@ -46,7 +46,7 @@ export type ProdutoCaixa = {
   controla_estoque: boolean;
 };
 
-export type ServicoCaixa = { nome: string; preco: number };
+export type ServicoCaixa = { nome: string; preco: number; categoria?: string };
 
 export type DadosFormulario = {
   taxas: TaxaPagamento[];
@@ -312,18 +312,59 @@ function LancamentoForm({
         {vendeServico && !lancamento && tabelaServicos.length > 0 && (
           <div className="bg-secondary/40 space-y-3 rounded-lg p-3">
             <div className="space-y-2">
-              <Label htmlFor="servico">Serviços feitos</Label>
+              <Label htmlFor="servico">Venda</Label>
+              {/* Serviços separados por tipo; produtos e cursos em seções próprias
+                  (escolher um produto/curso troca a categoria da venda) */}
               <NativeSelect
                 id="servico"
                 value=""
-                onChange={(e) => e.target.value && mudarServicos([...servicosEscolhidos, e.target.value])}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) return;
+                  if (v.startsWith("produto:") || v.startsWith("curso:")) {
+                    const pid = v.slice(v.indexOf(":") + 1);
+                    setServicosEscolhidos([]);
+                    setCategoria(v.startsWith("curso:") ? "Curso" : "Produto");
+                    escolherProduto(pid);
+                    return;
+                  }
+                  mudarServicos([...servicosEscolhidos, v]);
+                }}
               >
-                <option value="">{servicosEscolhidos.length ? "Adicionar outro serviço…" : "Escolha o serviço…"}</option>
-                {tabelaServicos.map((s) => (
-                  <option key={s.nome} value={s.nome}>
-                    {s.nome} · {formatMoeda(s.preco)}
-                  </option>
+                <option value="">{servicosEscolhidos.length ? "Adicionar outro serviço…" : "Escolha o serviço, produto ou curso…"}</option>
+                {[...new Set(tabelaServicos.map((s) => s.categoria ?? "Serviços"))].map((cat) => (
+                  <optgroup key={cat} label={`Serviços · ${cat}`}>
+                    {tabelaServicos
+                      .filter((s) => (s.categoria ?? "Serviços") === cat)
+                      .map((s) => (
+                        <option key={s.nome} value={s.nome}>
+                          {s.nome} · {formatMoeda(s.preco)}
+                        </option>
+                      ))}
+                  </optgroup>
                 ))}
+                {servicosEscolhidos.length === 0 && dados.produtos.some((p) => p.categoria !== "Cursos") && (
+                  <optgroup label="Produtos">
+                    {dados.produtos
+                      .filter((p) => p.categoria !== "Cursos")
+                      .map((p) => (
+                        <option key={p.id} value={`produto:${p.id}`}>
+                          {p.nome} · {formatMoeda(p.preco)}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                {servicosEscolhidos.length === 0 && dados.produtos.some((p) => p.categoria === "Cursos") && (
+                  <optgroup label="Cursos">
+                    {dados.produtos
+                      .filter((p) => p.categoria === "Cursos")
+                      .map((p) => (
+                        <option key={p.id} value={`curso:${p.id}`}>
+                          {p.nome} · {formatMoeda(p.preco)}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
               </NativeSelect>
             </div>
             {servicosEscolhidos.length > 0 && (
