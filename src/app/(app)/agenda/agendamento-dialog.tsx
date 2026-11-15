@@ -37,6 +37,7 @@ import {
   choqueCom,
   horariosLivres,
   minutosDoCurso,
+  somarDias,
   type CursoAgenda,
   mensagemMarcado,
   STATUS,
@@ -272,6 +273,8 @@ function AgendamentoForm({
 }: Props & { onFechar: () => void }) {
   const [state, action, pending] = useActionState<AgendaState, FormData>(salvarAgendamento, {});
   const [itens, setItens] = useState<ItemAgendamento[]>(a?.itens ?? []);
+  // Dias seguintes de uma turma de curso: cada um com data, início e término editáveis
+  const [diasCurso, setDiasCurso] = useState<{ data: string; inicio: string; fim: string }[]>([]);
   const [hora, setHora] = useState(a ? hhmmDeMinutos(minutosLocal(a.inicio)) : novoEm.hora);
   const [data, setData] = useState(a ? dataLocal(a.inicio) : novoEm.data);
   const [valorManual, setValorManual] = useState<string | null>(a ? numeroParaCampo(a.valor_total) : null);
@@ -314,6 +317,13 @@ function AgendamentoForm({
       const c = cursos?.find((x) => x.id === id.slice(6));
       if (!c) return;
       const dias = c.duracao_dias == null ? 1 : Math.max(1, Math.ceil(c.duracao_dias));
+      // Sugestão para os dias seguintes (dias corridos, mesmo horário): a pessoa confere e ajusta
+      if (dias > 1 && !a) {
+        const ini = /^\d{2}:\d{2}$/.test(hora) ? hora : "09:00";
+        const fim = hhmmDeMinutos(Math.min(minutosDeHHMM(ini) + minutosDoCurso(c.duracao_dias), 23 * 60 + 55));
+        const base = /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : novoEm.data;
+        setDiasCurso(Array.from({ length: dias - 1 }, (_, k) => ({ data: somarDias(base, k + 1), inicio: ini, fim })));
+      }
       setItens((atual) => [
         ...atual,
         { servico_id: null, nome: c.nome, duracao_min: minutosDoCurso(c.duracao_dias), valor: c.preco, curso_dias: dias },
@@ -328,6 +338,7 @@ function AgendamentoForm({
   }
 
   function remover(i: number) {
+    if ((itens[i]?.curso_dias ?? 1) > 1) setDiasCurso([]);
     setItens((atual) => atual.filter((_, j) => j !== i));
     setValorManual(null);
   }
@@ -365,6 +376,7 @@ function AgendamentoForm({
       {a && <input type="hidden" name="inicio_anterior" value={a.inicio} />}
       {ignorar && <input type="hidden" name="ignorar_horario" value="1" />}
       <input type="hidden" name="itens" value={JSON.stringify(itens)} />
+      {diasCurso.length > 0 && <input type="hidden" name="dias_curso" value={JSON.stringify(diasCurso)} />}
 
       <fieldset disabled={!editavel} className="min-w-0 space-y-4">
         <div className="space-y-2">
@@ -396,8 +408,23 @@ function AgendamentoForm({
           {itens.length > 0 && (
             <ul className="bg-card divide-y rounded-lg border">
               {itens.map((i, idx) => (
-                <li key={idx} className="flex items-center gap-2 px-3 py-2 text-sm">
+                <li key={idx} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
                   <span className="min-w-0 flex-1 truncate">{i.nome}</span>
+                  {i.curso_dias && editavel && /^\d{2}:\d{2}$/.test(hora) ? (
+                    <span className="flex basis-full items-center gap-2 text-xs sm:order-last">
+                      <span className="text-muted-foreground shrink-0">1º dia: {hora} até</span>
+                      <CampoHora
+                        compacto
+                        className="w-32"
+                        aria-label="Término do curso no 1º dia"
+                        value={hhmmDeMinutos(Math.min(minutosDeHHMM(hora) + i.duracao_min, 23 * 60 + 55))}
+                        onChange={(fim) => {
+                          const dur = minutosDeHHMM(fim) - minutosDeHHMM(hora);
+                          if (dur > 0) setItens((atual) => atual.map((x, j) => (j === idx ? { ...x, duracao_min: dur } : x)));
+                        }}
+                      />
+                    </span>
+                  ) : null}
                   <span className="text-muted-foreground text-xs">{formatDuracao(i.duracao_min)}</span>
                   <span className="w-20 text-right">{formatMoeda(i.valor)}</span>
                   {editavel && (
@@ -432,11 +459,43 @@ function AgendamentoForm({
               )}
             </NativeSelect>
           )}
-          {!a && itens.some((i) => (i.curso_dias ?? 1) > 1) && (
-            <p className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-950">
-              Turma de {Math.max(...itens.map((i) => i.curso_dias ?? 1))} dias: os dias seguintes são marcados sozinhos,
-              no mesmo horário, nos próximos dias abertos (sem valor — a venda entra no 1º dia).
-            </p>
+          {!a && diasCurso.length > 0 && (
+            <div className="space-y-2 rounded-md border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950">
+              <p>
+                <b>Turma de {diasCurso.length + 1} dias.</b> Os horários abaixo são uma sugestão: <b>confira e edite</b> a
+                data, o início e o término de cada dia (o curso nem sempre é no mesmo horário). Esses dias entram sem
+                valor — a venda fica no 1º dia.
+              </p>
+              {diasCurso.map((d, k) => (
+                <div key={k} className="bg-card space-y-2 rounded-md border p-2">
+                  <p className="text-xs font-semibold">Dia {k + 2}</p>
+                  <CampoData
+                    value={d.data}
+                    onChange={(v) => setDiasCurso((t) => t.map((x, j) => (j === k ? { ...x, data: v } : x)))}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1 text-xs">
+                      <span>Início</span>
+                      <CampoHora
+                        compacto
+                        aria-label={`Início do dia ${k + 2}`}
+                        value={d.inicio}
+                        onChange={(v) => setDiasCurso((t) => t.map((x, j) => (j === k ? { ...x, inicio: v } : x)))}
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs">
+                      <span>Término</span>
+                      <CampoHora
+                        compacto
+                        aria-label={`Término do dia ${k + 2}`}
+                        value={d.fim}
+                        onChange={(v) => setDiasCurso((t) => t.map((x, j) => (j === k ? { ...x, fim: v } : x)))}
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
           {duracao > 0 && (
             <p className="bg-secondary/60 rounded-md px-3 py-2 text-sm">

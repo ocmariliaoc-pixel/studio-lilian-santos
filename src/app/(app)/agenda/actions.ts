@@ -178,29 +178,30 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
     return falha(mensagemErroBanco(error));
   }
 
-  // Curso de vários dias: marca os dias seguintes da turma (próximos dias abertos, mesmo horário, sem valor)
-  if (!id) {
-    for (const item of itens.filter((i) => (i.curso_dias ?? 1) > 1)) {
-      const total = item.curso_dias!;
-      const { data: hs } = await supabase.from("horarios_funcionamento").select("dia_semana, aberto");
-      const fechado = new Set((hs ?? []).filter((x) => !x.aberto).map((x) => x.dia_semana as number));
-      let dia = data;
-      for (let k = 2; k <= total; k++) {
-        let tentativas = 0;
-        do {
-          dia = somarDias(dia, 1);
-          tentativas++;
-        } while (fechado.has(diaDaSemana(dia)) && tentativas < 14);
-        await supabase.rpc("salvar_agendamento", {
-          p_id: null,
-          p_cliente_id: clienteId,
-          p_inicio: paraISO(dia, hora),
-          p_itens: [{ servico_id: null, nome: `${item.nome} — dia ${k} de ${total}`, duracao_min: 480, valor: 0 }],
-          p_valor_total: 0,
-          p_marcado_por: marcadoPor,
-          p_observacoes: "Continuação da turma (marcado junto com o 1º dia)",
-        });
-      }
+  // Curso de vários dias: marca os dias seguintes da turma com a data, o início e o término que a pessoa
+  // conferiu na tela (sem valor — a venda entra no 1º dia)
+  const curso = itens.find((i) => (i.curso_dias ?? 1) > 1);
+  if (!id && curso) {
+    let dias: { data: string; inicio: string; fim: string }[] = [];
+    try {
+      dias = JSON.parse(String(formData.get("dias_curso") ?? "[]"));
+    } catch {}
+    const total = dias.length + 1;
+    let k = 1;
+    for (const d of dias) {
+      k++;
+      const ok = isDataISO(d.data) && /^\d{2}:\d{2}$/.test(d.inicio) && /^\d{2}:\d{2}$/.test(d.fim);
+      const dur = ok ? minutosDeHHMM(d.fim) - minutosDeHHMM(d.inicio) : 0;
+      if (!ok || dur <= 0) continue;
+      await supabase.rpc("salvar_agendamento", {
+        p_id: null,
+        p_cliente_id: clienteId,
+        p_inicio: paraISO(d.data, d.inicio),
+        p_itens: [{ servico_id: null, nome: `${curso.nome} — dia ${k} de ${total}`, duracao_min: dur, valor: 0 }],
+        p_valor_total: 0,
+        p_marcado_por: marcadoPor,
+        p_observacoes: "Continuação da turma (marcado junto com o 1º dia)",
+      });
     }
   }
 

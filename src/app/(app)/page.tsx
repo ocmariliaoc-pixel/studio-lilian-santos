@@ -65,7 +65,7 @@ export default async function InicioPage() {
     hoje,
     taxas: (taxas.data ?? []).map((t) => ({ ...t, taxa_percentual: Number(t.taxa_percentual) })) as TaxaPagamento[],
     sugestoes: (servicos.data ?? []).map((x) => x.nome),
-    servicos: (servicos.data ?? []).map((x) => ({ nome: x.nome, preco: Number(x.preco) })),
+    servicos: (servicos.data ?? []).map((x) => ({ nome: x.nome, preco: Number(x.preco), categoria: x.categoria })),
     produtos: (produtos.data ?? []).map((p) => ({ ...p, preco: Number(p.preco), controla_estoque: p.controla_estoque !== false })),
     clientes: (clientes.data ?? []).map((c) => c.nome),
   };
