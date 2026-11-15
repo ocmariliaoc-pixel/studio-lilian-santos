@@ -28,8 +28,8 @@ export function AcoesRapidas({
           <ShoppingBag className="size-5 text-gold" />
           Registrar nova venda
         </button>
-        <button type="button" onClick={() => setAgendando(true)} className={`${botao} bg-card hover:bg-secondary`}>
-          <CalendarPlus className="text-gold-dark size-5" />
+        <button type="button" onClick={() => setAgendando(true)} className={`${botao} bg-primary text-primary-foreground border-primary hover:bg-primary/90`}>
+          <CalendarPlus className="size-5 text-gold" />
           Agendar novo atendimento
         </button>
         <button type="button" onClick={() => setAberto("saida")} className={`${botao} bg-card hover:bg-secondary`}>
