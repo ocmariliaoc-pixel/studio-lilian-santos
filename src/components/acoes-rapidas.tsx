@@ -24,8 +24,8 @@ export function AcoesRapidas({
   return (
     <>
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <button type="button" onClick={() => setAberto("entrada")} className={`${botao} bg-primary text-primary-foreground border-primary hover:bg-primary/90`}>
-          <ShoppingBag className="size-5 text-gold" />
+        <button type="button" onClick={() => setAberto("entrada")} className={`${botao} bg-card hover:bg-secondary`}>
+          <ShoppingBag className="text-gold-dark size-5" />
           Registrar nova venda
         </button>
         <button type="button" onClick={() => setAgendando(true)} className={`${botao} bg-primary text-primary-foreground border-primary hover:bg-primary/90`}>
