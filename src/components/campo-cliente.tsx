@@ -21,7 +21,10 @@ export function CampoCliente({
   placeholder = "Digite o nome da cliente",
   id = "cliente_nome",
   onChange,
+  exigirWhatsapp,
 }: {
+  /** cliente nova precisa informar o WhatsApp (agendamento) */
+  exigirWhatsapp?: boolean;
   clientes: string[];
   defaultValue?: string;
   required?: boolean;
@@ -163,8 +166,11 @@ export function CampoCliente({
               name="cliente_whatsapp"
               type="tel"
               inputMode="tel"
-              placeholder="WhatsApp com DDD (opcional)"
+              placeholder={exigirWhatsapp ? "WhatsApp com DDD (obrigatório)" : "WhatsApp com DDD (opcional)"}
               autoComplete="off"
+              required={exigirWhatsapp}
+              minLength={exigirWhatsapp ? 10 : undefined}
+              title="WhatsApp com DDD, ex.: (85) 99999-8888"
             />
           )}
           {outraPessoa && <input type="hidden" name="confirmar_nova" value="1" />}

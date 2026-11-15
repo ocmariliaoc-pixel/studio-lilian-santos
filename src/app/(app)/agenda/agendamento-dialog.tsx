@@ -353,7 +353,7 @@ function AgendamentoForm({
       <fieldset disabled={!editavel} className="min-w-0 space-y-4">
         <div className="space-y-2">
           <Label htmlFor="cliente_nome">Cliente</Label>
-          <CampoCliente clientes={clientes} defaultValue={a?.cliente_nome} parecidasServidor={state.parecidas} required />
+          <CampoCliente clientes={clientes} defaultValue={a?.cliente_nome} parecidasServidor={state.parecidas} required exigirWhatsapp />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
