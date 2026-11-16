@@ -131,6 +131,33 @@ export async function lancarDoExtrato(movimentoId: string): Promise<AcaoState> {
     .toLowerCase()
     .replace(/(^|\s)\S/g, (x: string) => x.toUpperCase());
   const clienteId = await acharOuCriarCliente(supabase, nome);
+
+  // Não duplica: se já existe venda dessa cliente com o mesmo valor em até 3 dias, só liga as duas
+  if (clienteId && m.tipo === "entrada") {
+    const de = new Date(Date.parse(m.data) - 3 * 86_400_000).toISOString().slice(0, 10);
+    const ate = new Date(Date.parse(m.data) + 3 * 86_400_000).toISOString().slice(0, 10);
+    const { data: ja } = await supabase
+      .from("lancamentos")
+      .select("id")
+      .eq("cliente_id", clienteId)
+      .eq("tipo", "entrada")
+      .eq("cancelado", false)
+      .eq("valor", m.valor)
+      .gte("data", de)
+      .lte("data", ate)
+      .limit(5);
+    const { data: ligados } = await supabase
+      .from("extrato_movimentos")
+      .select("lancamento_id")
+      .in("lancamento_id", (ja ?? []).map((x) => x.id));
+    const livre = (ja ?? []).find((x) => !(ligados ?? []).some((y) => y.lancamento_id === x.id));
+    if (livre) {
+      await supabase.from("extrato_movimentos").update({ lancamento_id: livre.id }).eq("id", movimentoId);
+      revalidar();
+      return { ok: true, em: Date.now() };
+    }
+  }
+
   const { data: l, error } = await supabase
     .from("lancamentos")
     .insert({
