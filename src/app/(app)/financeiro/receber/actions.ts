@@ -14,6 +14,7 @@ export type ImportacaoState = AcaoState & { resumo?: string };
 function revalidar() {
   revalidatePath("/financeiro", "layout");
   revalidatePath("/clientes");
+  revalidatePath("/"); // alerta de pendências do extrato no Início
 }
 
 /** Importa o PDF do extrato da Ton e concilia com o caixa (mesmo valor, até 7 dias de diferença). */
@@ -185,5 +186,47 @@ export async function ignorarMovimento(movimentoId: string, ignorado: boolean): 
   const { error } = await supabase.from("extrato_movimentos").update({ ignorado }).eq("id", movimentoId);
   if (error) return falha(mensagemErroBanco(error));
   revalidar();
+  return { ok: true, em: Date.now() };
+}
+
+/**
+ * Entrada do banco que é SINAL de um agendamento (ex.: sinal do curso): lança no caixa como
+ * "Sinal — <serviços>" ligado ao agendamento. No "Concluído" o sistema cobra só o que falta.
+ */
+export async function lancarSinal(movimentoId: string, agendamentoId: string): Promise<AcaoState> {
+  const perfil = await requireAdmin();
+  if (!/^[0-9a-f-]{36}$/i.test(agendamentoId)) return falha("Escolha o agendamento.");
+  const supabase = await createClient();
+  const { data: m } = await supabase.from("extrato_movimentos").select("*").eq("id", movimentoId).single();
+  if (!m) return falha("Movimento não encontrado.");
+  if (m.lancamento_id) return falha("Esse movimento já está no caixa.");
+  const { data: ag } = await supabase
+    .from("agendamentos")
+    .select("id, cliente_id, cliente:clientes(nome), itens:agendamento_itens(nome, ordem)")
+    .eq("id", agendamentoId)
+    .single();
+  if (!ag) return falha("Agendamento não encontrado.");
+  const itens = ((ag.itens ?? []) as { nome: string; ordem: number }[]).sort((a, b) => a.ordem - b.ordem).map((i) => i.nome);
+  const ehCurso = itens.some((n) => /^curso/i.test(n));
+  const { data: l, error } = await supabase
+    .from("lancamentos")
+    .insert({
+      tipo: "entrada",
+      data: m.data,
+      descricao: `Sinal — ${itens.join(" + ") || "atendimento"}`,
+      cliente_nome: (ag.cliente as unknown as { nome: string } | null)?.nome ?? null,
+      cliente_id: ag.cliente_id,
+      categoria: ehCurso ? "Curso" : "Serviço",
+      valor: m.valor,
+      forma_pagamento: "pix",
+      agendamento_id: ag.id,
+      criado_por: perfil.id,
+    })
+    .select("id")
+    .single();
+  if (error || !l) return falha(mensagemErroBanco(error));
+  await supabase.from("extrato_movimentos").update({ lancamento_id: l.id }).eq("id", movimentoId);
+  revalidar();
+  revalidatePath("/agenda");
   return { ok: true, em: Date.now() };
 }

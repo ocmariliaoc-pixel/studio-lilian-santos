@@ -1,14 +1,19 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { CheckCircle2, CreditCard, EyeOff, FileUp, Loader2, Plus, RotateCcw } from "lucide-react";
+import { CheckCircle2, CreditCard, EyeOff, FileUp, HandCoins, Loader2, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatMoeda } from "@/lib/format";
 import { dataBR } from "@/lib/financeiro";
 import { ehRepasseCartao } from "@/lib/extrato-ton";
 import { cn } from "@/lib/utils";
-import { ignorarMovimento, importarExtrato, lancarDoExtrato, type ImportacaoState } from "./actions";
+import { ignorarMovimento, importarExtrato, lancarDoExtrato, lancarSinal, type ImportacaoState } from "./actions";
+import { NativeSelect } from "@/components/ui/native-select";
+import { parecenca } from "@/lib/nomes";
+
+/** Agendamento futuro que pode receber um sinal */
+export type AgendamentoSinal = { id: string; data: string; hora: string; cliente: string; servicos: string };
 import { semResetar } from "@/lib/form";
 
 export type Movimento = {
@@ -63,8 +68,18 @@ export function UploadExtrato() {
   );
 }
 
-export function ListaExtrato({ movimentos, admin }: { movimentos: Movimento[]; admin: boolean }) {
+export function ListaExtrato({
+  movimentos,
+  admin,
+  agendamentos = [],
+}: {
+  movimentos: Movimento[];
+  admin: boolean;
+  agendamentos?: AgendamentoSinal[];
+}) {
   const [pendente, iniciar] = useTransition();
+  const [sinalDe, setSinalDe] = useState<string | null>(null);
+  const [escolhido, setEscolhido] = useState("");
   function rodar(fn: () => Promise<{ ok?: boolean; erro?: string }>, msg: string) {
     iniciar(async () => {
       const r = await fn();
@@ -111,6 +126,19 @@ export function ListaExtrato({ movimentos, admin }: { movimentos: Movimento[]; a
                   <Button size="sm" disabled={pendente} onClick={() => rodar(() => lancarDoExtrato(m.id), "Lançado no caixa")}>
                     <Plus /> Lançar no caixa
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pendente}
+                    onClick={() => {
+                      setSinalDe(sinalDe === m.id ? null : m.id);
+                      // sugere o agendamento da cliente com nome mais parecido
+                      const melhor = [...agendamentos].sort((a, b) => parecenca(m.descricao, b.cliente) - parecenca(m.descricao, a.cliente))[0];
+                      setEscolhido(melhor && parecenca(m.descricao, melhor.cliente) > 0 ? melhor.id : "");
+                    }}
+                  >
+                    <HandCoins /> É sinal
+                  </Button>
                   <Button size="sm" variant="ghost" disabled={pendente} onClick={() => rodar(() => ignorarMovimento(m.id, true), "Ignorado")}>
                     <EyeOff /> Ignorar
                   </Button>
@@ -122,6 +150,42 @@ export function ListaExtrato({ movimentos, admin }: { movimentos: Movimento[]; a
                 </Button>
               )}
             </span>
+            {sinalDe === m.id && estado === "falta" && admin && (
+              <div className="bg-secondary/50 mt-2 w-full space-y-2 rounded-lg p-3 text-sm">
+                <p>
+                  Sinal de qual agendamento? Os {formatMoeda(m.valor)} entram no caixa como <b>sinal</b>; no
+                  &ldquo;Concluído&rdquo; a cobrança é só do que falta.
+                </p>
+                <NativeSelect value={escolhido} onChange={(e) => setEscolhido(e.target.value)} aria-label="Agendamento do sinal">
+                  <option value="">Escolha o agendamento…</option>
+                  {[...agendamentos]
+                    .sort((a, b) => parecenca(m.descricao, b.cliente) - parecenca(m.descricao, a.cliente) || a.data.localeCompare(b.data))
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.cliente} · {dataBR(a.data).slice(0, 5)} {a.hora} · {a.servicos}
+                      </option>
+                    ))}
+                </NativeSelect>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={pendente || !escolhido}
+                    onClick={() =>
+                      rodar(async () => {
+                        const r = await lancarSinal(m.id, escolhido);
+                        if (r.ok) setSinalDe(null);
+                        return r;
+                      }, "Sinal lançado no caixa")
+                    }
+                  >
+                    Lançar como sinal
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSinalDe(null)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
           </li>
         );
       })}

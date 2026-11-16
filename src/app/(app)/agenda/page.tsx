@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { hojeISO, isDataISO } from "@/lib/financeiro";
-import { dataLocal, inicioSemana, OFFSET, somarDias, type Agendamento } from "@/lib/agenda";
+import { dataLocal, ehSinal, inicioSemana, OFFSET, somarDias, type Agendamento } from "@/lib/agenda";
 import { ultimoDiaDoMes } from "@/lib/metas";
 import type { HorarioDia, Servico, TaxaPagamento } from "@/lib/configuracoes";
 import { ErroMigracao } from "@/components/erro-migracao";
@@ -35,7 +35,7 @@ export default async function AgendaPage({
     supabase
       .from("agendamentos")
       .select(
-        "id, cliente_id, inicio, fim, fim_ocupado, status, valor_total, marcado_por, observacoes, cliente:clientes(nome, whatsapp), itens:agendamento_itens(servico_id, nome, duracao_min, valor, ordem), lancamentos(id)"
+        "id, cliente_id, inicio, fim, fim_ocupado, status, valor_total, marcado_por, observacoes, cliente:clientes(nome, whatsapp), itens:agendamento_itens(servico_id, nome, duracao_min, valor, ordem), lancamentos(id, valor, descricao, cancelado)"
       )
       .gte("inicio", `${deBusca}T00:00:00${OFFSET}`)
       .lt("inicio", `${somarDias(ateBusca, 1)}T00:00:00${OFFSET}`)
@@ -90,6 +90,8 @@ export default async function AgendaPage({
   for (const v of visitasCaixa.data ?? []) anotar(v.cliente_id, v.data);
   for (const v of visitasAgenda.data ?? []) anotar(v.cliente_id, dataLocal(v.inicio));
 
+  const lancs = (a: { lancamentos: unknown }) =>
+    ((a.lancamentos ?? []) as { valor: number; descricao: string; cancelado: boolean }[]);
   const agendamentos: Agendamento[] = (ags.data ?? []).map((a) => {
     const cliente = a.cliente as unknown as { nome: string; whatsapp: string | null } | null;
     const itens = ((a.itens ?? []) as { servico_id: string | null; nome: string; duracao_min: number; valor: number; ordem: number }[])
@@ -108,7 +110,8 @@ export default async function AgendaPage({
       marcado_por: a.marcado_por,
       observacoes: a.observacoes,
       itens,
-      lancado: ((a.lancamentos as unknown[]) ?? []).length > 0,
+      lancado: lancs(a).some((l) => !l.cancelado && !ehSinal(l.descricao)),
+      sinal: lancs(a).filter((l) => !l.cancelado && ehSinal(l.descricao)).reduce((t, l) => t + Number(l.valor), 0),
       cliente_nova: !primeiraVisita.has(a.cliente_id) || primeiraVisita.get(a.cliente_id)! >= dataLocal(a.inicio),
     };
   });

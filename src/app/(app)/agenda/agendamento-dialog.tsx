@@ -105,7 +105,9 @@ function AcoesStatus({
   const [pagando, setPagando] = useState(false);
   const [forma, setForma] = useState<FormaPagamento | "">("");
   const [parcelas, setParcelas] = useState(2);
-  const [valorTexto, setValorTexto] = useState(numeroParaCampo(a.valor_total));
+  // Com sinal pago antes, cobra só o que falta
+  const sinal = a.sinal ?? 0;
+  const [valorTexto, setValorTexto] = useState(numeroParaCampo(Math.max(0, a.valor_total - sinal)));
 
   const ativas = taxas.filter((t) => t.ativo);
   const formas = (Object.keys(FORMAS_PAGAMENTO) as FormaPagamento[]).filter((f) => ativas.some((t) => t.forma === f));
@@ -205,6 +207,12 @@ function AcoesStatus({
       {pagando && (
         <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
           <p className="text-sm font-medium">Pagamento</p>
+          {sinal > 0 && (
+            <p className="rounded-md bg-emerald-100/70 px-3 py-2 text-sm text-emerald-950">
+              Sinal já pago: <b>{formatMoeda(sinal)}</b> · total {formatMoeda(a.valor_total)} · falta{" "}
+              <b>{formatMoeda(Math.max(0, a.valor_total - sinal))}</b>
+            </p>
+          )}
           <div className="relative">
             <span className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm">R$</span>
             <Input
