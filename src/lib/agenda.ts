@@ -15,6 +15,11 @@ export type ItemAgendamento = {
 /** Curso (produto da categoria Cursos) oferecido no agendamento */
 export type CursoAgenda = { id: string; nome: string; preco: number; duracao_dias: number | null };
 
+/** Lançamento de sinal (pago antes do atendimento): não conta como a venda do atendimento */
+export function ehSinal(descricao: string | null | undefined) {
+  return /^sinal\b/i.test((descricao ?? "").trim());
+}
+
 /** Horas que um curso ocupa na agenda: meio dia = 4h; dia inteiro = 8h. */
 export function minutosDoCurso(dias: number | null) {
   return dias != null && dias <= 0.5 ? 240 : 480;
@@ -36,7 +41,9 @@ export type Agendamento = {
   marcado_por: string | null;
   observacoes: string | null;
   itens: ItemAgendamento[];
-  lancado: boolean; // já tem lançamento no caixa
+  lancado: boolean; // já tem a venda no caixa (sem contar sinal)
+  /** sinal já pago antes (lançamentos "Sinal — …" ligados ao agendamento) */
+  sinal?: number;
   /** primeira vez no studio (nenhuma visita antes deste dia) → etiqueta "Nova cliente" */
   cliente_nova?: boolean;
 };

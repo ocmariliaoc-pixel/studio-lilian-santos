@@ -15,6 +15,7 @@ import {
   minutosDeHHMM,
   paraISO,
   DIA_DE_CURSO,
+  ehSinal,
   OFFSET,
   OCUPA_AGENDA,
   somarDias,
@@ -257,11 +258,15 @@ export async function marcarRealizado(
     .single();
   if (error || !ag) return falha("Agendamento não encontrado.");
 
-  const { data: ja } = await supabase.from("lancamentos").select("id").eq("agendamento_id", id).limit(1);
+  const { data: lancs } = await supabase.from("lancamentos").select("id, valor, descricao, cancelado").eq("agendamento_id", id);
+  const validos = (lancs ?? []).filter((l) => !l.cancelado);
+  const ja = validos.filter((l) => !ehSinal(l.descricao)); // a venda do atendimento já lançada
+  const sinal = validos.filter((l) => ehSinal(l.descricao)).reduce((t, l) => t + Number(l.valor), 0);
   const itensAg = ((ag.itens as { nome: string; ordem: number }[]) ?? []).sort((a, b) => a.ordem - b.ordem);
   // Dias seguintes de uma turma de curso: só marca como concluído (a venda já entrou no 1º dia)
   const soContinuacao = itensAg.length > 0 && itensAg.every((i) => DIA_DE_CURSO.test(i.nome));
-  if (!ja?.length && !soContinuacao) {
+  // Com sinal: lança só o restante (se o sinal cobriu tudo, não lança mais nada)
+  if (!ja.length && !soContinuacao && !(sinal > 0 && valorCobrado === 0)) {
     const itens = itensAg;
     const cliente = ag.cliente as unknown as { nome: string } | null;
     const { error: e2 } = await supabase.from("lancamentos").insert({
@@ -282,7 +287,7 @@ export async function marcarRealizado(
 
   const { error: e3 } = await supabase
     .from("agendamentos")
-    .update({ status: "realizado", valor_total: Math.round(valorCobrado * 100) / 100 })
+    .update({ status: "realizado", valor_total: Math.round((valorCobrado + sinal) * 100) / 100 })
     .eq("id", id);
   if (e3) return falha(mensagemErroBanco(e3));
 

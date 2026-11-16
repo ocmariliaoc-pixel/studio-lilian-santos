@@ -5,7 +5,7 @@ import { getPerfil, isAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoeda } from "@/lib/format";
 import { hojeISO, dataBR } from "@/lib/financeiro";
-import { inicioSemana, OFFSET, somarDias, dataLocal, hhmmDeMinutos, minutosLocal } from "@/lib/agenda";
+import { inicioSemana, OFFSET, somarDias, dataLocal, ehSinal, hhmmDeMinutos, minutosLocal } from "@/lib/agenda";
 import { ehRepasseCartao } from "@/lib/extrato-ton";
 import { ErroMigracao } from "@/components/erro-migracao";
 import { ListaExtrato, UploadExtrato, type Movimento } from "./receber-tela";
@@ -36,7 +36,7 @@ export default async function ContasReceberPage({
       .limit(300),
     supabase
       .from("agendamentos")
-      .select("id, inicio, valor_total, status, cliente:clientes(nome), itens:agendamento_itens(nome, ordem)")
+      .select("id, inicio, valor_total, status, cliente:clientes(nome), itens:agendamento_itens(nome, ordem), lancamentos(valor, descricao, cancelado)")
       .in("status", ["agendado", "confirmado"])
       .gte("inicio", `${hoje}T00:00:00${OFFSET}`)
       .order("inicio"),
@@ -54,7 +54,12 @@ export default async function ContasReceberPage({
     id: a.id as string,
     data: dataLocal(a.inicio),
     hora: hhmmDeMinutos(minutosLocal(a.inicio)),
-    valor: Number(a.valor_total),
+    // previsão: o que ainda falta receber (desconta o sinal já pago)
+    valor:
+      Number(a.valor_total) -
+      ((a.lancamentos ?? []) as { valor: number; descricao: string; cancelado: boolean }[])
+        .filter((l) => !l.cancelado && ehSinal(l.descricao))
+        .reduce((t, l) => t + Number(l.valor), 0),
     status: a.status as string,
     cliente: (a.cliente as unknown as { nome: string } | null)?.nome ?? "—",
     servicos: ((a.itens ?? []) as { nome: string; ordem: number }[])
@@ -190,7 +195,13 @@ export default async function ContasReceberPage({
             </Link>
           </p>
         )}
-        <ListaExtrato movimentos={listaExtrato} admin={admin} />
+        <ListaExtrato
+          movimentos={listaExtrato}
+          admin={admin}
+          agendamentos={futuros
+            .filter((x) => !/— dia \d+ de \d+$/.test(x.servicos))
+            .map((x) => ({ id: x.id, data: x.data, hora: x.hora, cliente: x.cliente, servicos: x.servicos }))}
+        />
       </section>
     </div>
   );
