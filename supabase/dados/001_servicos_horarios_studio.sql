@@ -10,7 +10,7 @@ from (values
   ('Design personalizado',                 'Sobrancelha',                   30,  55.00,  20, true),  -- duração estimada
   ('Design personalizado com henna',       'Sobrancelha',                   45,  65.00,  20, true),  -- duração estimada
   ('Design personalizado com coloração',   'Sobrancelha',                   45,  65.00,  20, true),  -- duração estimada
-  ('Brow Lamination',                      'Sobrancelha',                   60, 110.00,  45, true),  -- 1ª→2ª: 60 dias; manutenção: 45
+  ('Brow Lamination',                      'Sobrancelha',                   60, 120.00,  45, true),  -- 1ª→2ª: 60 dias; manutenção: 45
   -- Cílios
   ('Lash Lifting',                         'Cílios',                        60,  80.00,  45, true),  -- 1ª→2ª: 60 dias; manutenção: 45
   -- Depilação (volume)
