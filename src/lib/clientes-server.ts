@@ -20,7 +20,7 @@ export type ResultadoCliente =
 export async function resolverCliente(
   supabase: SupabaseClient,
   nome: string,
-  opcoes: { confirmarNova?: boolean; whatsapp?: string | null; exigirWhatsapp?: boolean } = {}
+  opcoes: { confirmarNova?: boolean; whatsapp?: string | null } = {}
 ): Promise<ResultadoCliente> {
   const limpo = nome.trim().replace(/\s+/g, " ");
   if (!limpo) return { ok: false, erro: "Informe o nome da cliente.", parecidas: [] };
@@ -56,8 +56,6 @@ export async function resolverCliente(
       };
   }
 
-  if (opcoes.exigirWhatsapp && !tel)
-    return { ok: false, erro: `Informe o WhatsApp de ${limpo} (cliente nova), com DDD.`, parecidas: [] };
   if (tel && (tel.length < 10 || tel.length > 11))
     return { ok: false, erro: "WhatsApp com DDD, ex.: (85) 99999-8888", parecidas: [] };
 
