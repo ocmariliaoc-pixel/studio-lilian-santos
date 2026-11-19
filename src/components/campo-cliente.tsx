@@ -23,7 +23,7 @@ export function CampoCliente({
   onChange,
   exigirWhatsapp,
 }: {
-  /** cliente nova precisa informar o WhatsApp (agendamento) */
+  /** cliente nova sem WhatsApp mostra aviso em vermelho (agendamento) — avisa, não trava */
   exigirWhatsapp?: boolean;
   clientes: string[];
   defaultValue?: string;
@@ -37,6 +37,7 @@ export function CampoCliente({
   const [nome, setNome] = useState(defaultValue);
   const [aberta, setAberta] = useState(false);
   const [outraPessoa, setOutraPessoa] = useState(false);
+  const [whatsapp, setWhatsapp] = useState("");
 
   const existente = useMemo(
     () => clientes.find((c) => normalizarNome(c) === normalizarNome(nome)),
@@ -166,12 +167,17 @@ export function CampoCliente({
               name="cliente_whatsapp"
               type="tel"
               inputMode="tel"
-              placeholder={exigirWhatsapp ? "WhatsApp com DDD (obrigatório)" : "WhatsApp com DDD (opcional)"}
+              placeholder="WhatsApp com DDD"
               autoComplete="off"
-              required={exigirWhatsapp}
-              minLength={exigirWhatsapp ? 10 : undefined}
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
               title="WhatsApp com DDD, ex.: (85) 99999-8888"
             />
+          )}
+          {exigirWhatsapp && (parecidas.length === 0 || outraPessoa) && whatsapp.replace(/\D/g, "").length < 10 && (
+            <p className="text-sm font-medium text-red-700">
+              ⚠ Cliente nova sem WhatsApp: peça o número para mandar a confirmação. Dá para salvar mesmo assim.
+            </p>
           )}
           {outraPessoa && <input type="hidden" name="confirmar_nova" value="1" />}
         </div>

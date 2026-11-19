@@ -156,7 +156,6 @@ export async function salvarAgendamento(_: AgendaState, formData: FormData): Pro
   const rc = await resolverCliente(supabase, clienteNome, {
     confirmarNova: formData.get("confirmar_nova") === "1",
     whatsapp,
-    exigirWhatsapp: true,
   });
   if (!rc.ok) return { ...falha(rc.erro), parecidas: rc.parecidas };
   const clienteId = rc.id;
