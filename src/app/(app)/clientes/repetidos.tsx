@@ -25,7 +25,7 @@ function acharRepetidos(clientes: ClienteResumo[]) {
   return pares;
 }
 
-export function CadastrosRepetidos({ clientes }: { clientes: ClienteResumo[] }) {
+export function CadastrosRepetidos({ clientes, onVer }: { clientes: ClienteResumo[]; onVer?: (ids: string[]) => void }) {
   const pares = useMemo(() => acharRepetidos(clientes), [clientes]);
   const [par, setPar] = useState<[ClienteResumo, ClienteResumo] | null>(null);
   // "São pessoas diferentes" fica lembrado neste aparelho
@@ -59,10 +59,20 @@ export function CadastrosRepetidos({ clientes }: { clientes: ClienteResumo[] }) 
             <p>
               <b>{a.nome}</b> <span className="text-muted-foreground">e</span> <b>{b.nome}</b>
             </p>
+            <p className="text-muted-foreground text-xs">
+              {[a, b]
+                .map((c) => `${c.nome}: ${c.visitas} ${c.visitas === 1 ? "visita" : "visitas"}${c.whatsapp ? " · tem WhatsApp" : ""}`)
+                .join(" · ")}
+            </p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={() => setPar([a, b])}>
                 Juntar
               </Button>
+              {onVer && (
+                <Button size="sm" variant="outline" onClick={() => onVer([a.id, b.id])}>
+                  Ver e corrigir
+                </Button>
+              )}
               <Button size="sm" variant="ghost" onClick={() => ignorar(`${a.id}|${b.id}`)}>
                 São pessoas diferentes
               </Button>
@@ -75,7 +85,7 @@ export function CadastrosRepetidos({ clientes }: { clientes: ClienteResumo[] }) 
   );
 }
 
-function JuntarDialog({ par, onFechar }: { par: [ClienteResumo, ClienteResumo]; onFechar: () => void }) {
+export function JuntarDialog({ par, onFechar }: { par: [ClienteResumo, ClienteResumo]; onFechar: () => void }) {
   // Sugestão: fica o cadastro com mais histórico
   const sugerido = par[0].visitas + par[0].total_gasto >= par[1].visitas + par[1].total_gasto ? 0 : 1;
   const [fica, setFica] = useState(sugerido);
