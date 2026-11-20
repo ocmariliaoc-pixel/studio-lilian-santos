@@ -59,7 +59,7 @@ export async function GET() {
       nome: c.nome,
       whatsapp: formatTelefone(c.whatsapp),
       instagram: c.instagram ? `@${c.instagram}` : "",
-      nascimento: dia(c.data_nascimento),
+      nascimento: c.data_nascimento?.startsWith("1900-") ? `${c.data_nascimento.slice(8, 10)}/${c.data_nascimento.slice(5, 7)}` : dia(c.data_nascimento),
       status: STATUS_CLIENTE[c.status as StatusCliente] ?? c.status,
       motivo: c.motivo_perda ?? "",
       origem: c.origem ?? "",

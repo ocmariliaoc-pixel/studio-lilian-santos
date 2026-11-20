@@ -26,7 +26,7 @@ export async function salvarCampoCliente(
     valor = normalizarInstagram(texto) || null;
     if (valor && !/^[a-z0-9._]{1,30}$/.test(valor)) return falha("Instagram inválido. Ex.: @studio.ls");
   } else if (campo === "data_nascimento") {
-    if (valor && (!isDataISO(valor) || valor > new Date().toISOString().slice(0, 10) || valor < "1900-01-01"))
+    if (valor && (!isDataISO(valor) || (valor > new Date().toISOString().slice(0, 10) && !valor.startsWith("1900-")) || valor < "1900-01-01"))
       return falha("Data de nascimento inválida.");
   } else if (campo === "status") {
     if (!valor || !(valor in STATUS_CLIENTE)) return falha("Status inválido.");
