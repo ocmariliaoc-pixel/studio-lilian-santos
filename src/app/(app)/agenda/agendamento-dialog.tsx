@@ -20,7 +20,9 @@ import { formatMoeda } from "@/lib/format";
 import {
   FORMAS_PAGAMENTO,
   formatDuracao,
+  ehModelo,
   numeroParaCampo,
+  precoTexto,
   parseNumeroBR,
   valorLiquido,
   type FormaPagamento,
@@ -139,6 +141,7 @@ function AcoesStatus({
     });
   }
 
+  const modelo = a.itens.some((i) => ehModelo(i));
   const wa = linkWhatsApp(a.cliente_whatsapp, mensagemConfirmacao(a));
   const encerrado = a.status === "realizado" || a.status === "cancelado" || a.status === "faltou";
 
@@ -223,6 +226,11 @@ function AcoesStatus({
               className="pl-9 text-lg font-semibold"
             />
           </div>
+          {modelo && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              Atendimento de <b>modelo</b>: digite o valor combinado com ela (0 = sem cobrança).
+            </p>
+          )}
           {valor > 0 ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {formas.map((f) => (
@@ -312,6 +320,7 @@ function AgendamentoForm({
   const duracao = itens.reduce((s, i) => s + i.duracao_min, 0);
   const soma = itens.reduce((s, i) => s + i.valor, 0);
   const valorTexto = valorManual ?? numeroParaCampo(soma);
+  const temModelo = itens.some((i) => ehModelo(i));
   const termina = hora && duracao ? hhmmDeMinutos(minutosDeHHMM(hora) + duracao) : null;
 
   const porCategoria = useMemo(() => {
@@ -434,7 +443,7 @@ function AgendamentoForm({
                     </span>
                   ) : null}
                   <span className="text-muted-foreground text-xs">{formatDuracao(i.duracao_min)}</span>
-                  <span className="w-20 text-right">{formatMoeda(i.valor)}</span>
+                  <span className="w-20 text-right">{precoTexto({ nome: i.nome, preco: i.valor }, formatMoeda)}</span>
                   {editavel && (
                     <button type="button" onClick={() => remover(idx)} aria-label={`Tirar ${i.nome}`} className="text-muted-foreground p-1">
                       <X className="size-4" />
@@ -451,7 +460,7 @@ function AgendamentoForm({
                 <optgroup key={cat} label={cat}>
                   {lista.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.nome} · {formatDuracao(s.duracao_min)} · {formatMoeda(s.preco)}
+                      {s.nome} · {formatDuracao(s.duracao_min)} · {precoTexto(s, formatMoeda)}
                     </option>
                   ))}
                 </optgroup>
@@ -526,6 +535,11 @@ function AgendamentoForm({
               className="pl-9"
             />
           </div>
+          {temModelo && (
+            <p className="text-xs text-amber-800">
+              Modelo: valor a combinar. Digite o valor combinado, ou deixe 0 e preencha ao concluir.
+            </p>
+          )}
           {valorManual !== null && Math.abs((parseNumeroBR(valorManual) ?? 0) - soma) > 0.004 && (
             <p className="text-muted-foreground text-xs">
               Tabela: {formatMoeda(soma)}.{" "}

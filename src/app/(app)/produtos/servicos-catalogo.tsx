@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatMoeda } from "@/lib/format";
-import { formatDuracao, type Servico } from "@/lib/configuracoes";
+import { formatDuracao, precoTexto, type Servico } from "@/lib/configuracoes";
+import { ModeloBotao } from "@/app/(app)/configuracoes/servicos/modelo-dialog";
 import { NovoServicoBotao } from "./novo-servico";
 
 /** Catálogo de serviços: todas cadastram serviço novo aqui; editar preço/duração fica em Configurações → Serviços (admin). */
@@ -19,6 +20,7 @@ export function ServicosCatalogo({ servicos, admin }: { servicos: Servico[]; adm
         </p>
         <div className="flex flex-wrap gap-2">
           <NovoServicoBotao categorias={[...grupos.keys()].sort((a, b) => a.localeCompare(b, "pt-BR"))} />
+          {admin && <ModeloBotao servicos={servicos} />}
           {admin && (
             <Button asChild variant="outline">
               <Link href="/configuracoes/servicos">
@@ -41,7 +43,7 @@ export function ServicosCatalogo({ servicos, admin }: { servicos: Servico[]; adm
                     {s.retorno_dias ? ` · retorno em ${s.retorno_dias} dias` : ""}
                   </span>
                 </span>
-                <span className="font-semibold whitespace-nowrap tabular-nums">{formatMoeda(s.preco)}</span>
+                <span className="font-semibold whitespace-nowrap tabular-nums">{precoTexto(s, formatMoeda)}</span>
               </li>
             ))}
           </ul>

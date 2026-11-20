@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getPerfil, requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { parseNumeroBR } from "@/lib/configuracoes";
+import { CATEGORIA_MODELO, ehModelo, nomeModelo, parseNumeroBR } from "@/lib/configuracoes";
 import { falha, mensagemErroBanco, sucesso, type AcaoState } from "@/lib/acoes";
 
 export async function salvarServico(_: AcaoState, formData: FormData): Promise<AcaoState> {
@@ -42,6 +42,52 @@ export async function salvarServico(_: AcaoState, formData: FormData): Promise<A
     : await supabase.from("servicos").insert(dados);
 
   if (error) return falha(mensagemErroBanco(error));
+
+  revalidatePath("/configuracoes/servicos");
+  revalidatePath("/produtos");
+  revalidatePath("/agenda");
+  revalidatePath("/");
+  return sucesso();
+}
+
+/**
+ * Serviço de modelo: a admin escolhe para quais serviços existe a versão "Modelo — <serviço>"
+ * (categoria Modelo, valor a combinar = R$ 0 na tabela, mesma duração e retorno do serviço).
+ * Marcados: cria ou reativa; desmarcados: desativa (mantém o histórico).
+ */
+export async function salvarModelos(baseIds: string[]): Promise<AcaoState> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("servicos").select("id, nome, categoria, duracao_min, retorno_dias, ativo");
+  if (error) return falha(mensagemErroBanco(error));
+  const todos = data ?? [];
+  const modelos = todos.filter((s) => ehModelo(s));
+  const escolhidos = todos.filter((s) => baseIds.includes(s.id) && !ehModelo(s));
+  const nomesEscolhidos = new Set(escolhidos.map((b) => nomeModelo(b.nome).toLowerCase()));
+
+  for (const b of escolhidos) {
+    const nome = nomeModelo(b.nome);
+    const existe = modelos.find((m) => m.nome.toLowerCase() === nome.toLowerCase());
+    const r = existe
+      ? await supabase
+          .from("servicos")
+          .update({ ativo: true, categoria: CATEGORIA_MODELO, duracao_min: b.duracao_min, retorno_dias: b.retorno_dias })
+          .eq("id", existe.id)
+      : await supabase.from("servicos").insert({
+          nome,
+          categoria: CATEGORIA_MODELO,
+          duracao_min: b.duracao_min,
+          preco: 0,
+          retorno_dias: b.retorno_dias,
+          ativo: true,
+        });
+    if (r.error) return falha(mensagemErroBanco(r.error));
+  }
+  const desligar = modelos.filter((m) => m.ativo && !nomesEscolhidos.has(m.nome.toLowerCase())).map((m) => m.id);
+  if (desligar.length) {
+    const r = await supabase.from("servicos").update({ ativo: false }).in("id", desligar);
+    if (r.error) return falha(mensagemErroBanco(r.error));
+  }
 
   revalidatePath("/configuracoes/servicos");
   revalidatePath("/produtos");

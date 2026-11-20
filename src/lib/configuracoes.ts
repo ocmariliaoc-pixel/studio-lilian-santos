@@ -100,3 +100,23 @@ export function numeroParaCampo(n: number | null | undefined, casas = 2) {
   if (n == null) return "";
   return n.toFixed(casas).replace(".", ",");
 }
+
+// ---------------------------------------------------------------------------
+// Modelo: atendimento em modelo, valor combinado caso a caso ("a combinar")
+// ---------------------------------------------------------------------------
+export const CATEGORIA_MODELO = "Modelo";
+
+/** Nome do serviço de modelo gerado a partir do serviço base: "Modelo — Design personalizado" */
+export function nomeModelo(base: string) {
+  return `Modelo — ${base}`;
+}
+
+/** Serviço/item de modelo (valor a combinar) */
+export function ehModelo(s: { nome: string; categoria?: string | null }) {
+  return s.categoria === CATEGORIA_MODELO || /^modelo\s+—/i.test(s.nome);
+}
+
+/** Preço para mostrar: modelo sem valor = "a combinar" */
+export function precoTexto(s: { nome: string; categoria?: string | null; preco: number }, formatar: (v: number) => string) {
+  return ehModelo(s) && !s.preco ? "a combinar" : formatar(s.preco);
+}
