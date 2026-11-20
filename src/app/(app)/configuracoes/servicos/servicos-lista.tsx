@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { formatMoeda } from "@/lib/format";
-import { CATEGORIAS_SUGERIDAS, formatDuracao, type Servico } from "@/lib/configuracoes";
+import { CATEGORIAS_SUGERIDAS, formatDuracao, precoTexto, type Servico } from "@/lib/configuracoes";
 import { cn } from "@/lib/utils";
 import { ServicoDialog } from "./servico-form";
+import { ModeloBotao } from "./modelo-dialog";
 
 export function ServicosLista({ servicos }: { servicos: Servico[] }) {
   const [busca, setBusca] = useState("");
@@ -63,6 +64,7 @@ export function ServicosLista({ servicos }: { servicos: Servico[] }) {
           <Plus />
           Novo serviço
         </Button>
+        <ModeloBotao servicos={servicos} />
       </div>
 
       {inativos > 0 && (
@@ -112,7 +114,7 @@ export function ServicosLista({ servicos }: { servicos: Servico[] }) {
                         {s.retorno_dias ? ` · retorno em ${s.retorno_dias} dias` : ""}
                       </span>
                     </span>
-                    <span className="font-semibold whitespace-nowrap">{formatMoeda(s.preco)}</span>
+                    <span className="font-semibold whitespace-nowrap">{precoTexto(s, formatMoeda)}</span>
                     <ChevronRight className="text-muted-foreground size-4 shrink-0" />
                   </button>
                 </li>
