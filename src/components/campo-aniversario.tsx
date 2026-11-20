@@ -4,21 +4,27 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 
-/** Ano gravado quando não se sabe o ano de nascimento (só dia e mês importam para o aniversário). */
-export const ANO_DESCONHECIDO = 1900;
+/**
+ * Ano gravado quando não se sabe o ano de nascimento (só dia e mês importam para o aniversário).
+ * 1904 é bissexto (aceita 29/02). Qualquer ano antes de 1905 = "sem ano" (1900 foi usado no começo).
+ */
+export const ANO_DESCONHECIDO = 1904;
+export function semAno(iso: string | null | undefined) {
+  return !!iso && Number(iso.slice(0, 4)) < 1905;
+}
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 function partes(iso: string) {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return { dia: "", mes: "", ano: "" };
-  return { dia: String(Number(m[3])), mes: String(Number(m[2])), ano: Number(m[1]) === ANO_DESCONHECIDO ? "" : m[1] };
+  return { dia: String(Number(m[3])), mes: String(Number(m[2])), ano: Number(m[1]) < 1905 ? "" : m[1] };
 }
 
 /**
  * Aniversário: dia e mês (obrigatórios para salvar) + ano opcional. Sem calendário — o calendário
  * do celular abria no ano atual e não deixava escolher uma data depois de hoje.
- * Envia aaaa-mm-dd em onCommit (ano 1900 = ano não informado) ou "" para apagar.
+ * Envia aaaa-mm-dd em onCommit (ano antes de 1905 = ano não informado) ou "" para apagar.
  */
 export function CampoAniversario({ value, onCommit }: { value: string; onCommit: (iso: string) => void }) {
   const inicial = partes(value);

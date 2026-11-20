@@ -8,8 +8,12 @@ export function formatMoeda(valor: number | null | undefined) {
   return moeda.format(valor ?? 0);
 }
 
-/** dd/mm/aaaa */
+/** dd/mm/aaaa (data sem hora "aaaa-mm-dd" não muda de dia por causa do fuso) */
 export function formatData(data: Date | string | number) {
+  if (typeof data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    const [a, m, d] = data.split("-");
+    return `${d}/${m}/${a}`;
+  }
   return new Intl.DateTimeFormat(LOCALE, {
     timeZone: TIMEZONE,
     day: "2-digit",
@@ -29,6 +33,8 @@ export function formatHora(data: Date | string | number) {
 
 /** "sábado, 7 de novembro" */
 export function formatDataExtenso(data: Date | string | number) {
+  // data sem hora: meio-dia em UTC, para não cair no dia anterior no fuso de Fortaleza
+  if (typeof data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data)) data = `${data}T12:00:00Z`;
   return new Intl.DateTimeFormat(LOCALE, {
     timeZone: TIMEZONE,
     weekday: "long",
