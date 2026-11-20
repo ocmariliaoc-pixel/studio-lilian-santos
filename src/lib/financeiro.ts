@@ -92,7 +92,10 @@ function iso(a: number, m: number, d: number) {
 }
 
 export function isDataISO(s: string | undefined | null): s is string {
-  return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
+  // Date.parse aceita 31/02 (vira 03/03): confere se o dia existe de verdade
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const t = Date.parse(s);
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === s;
 }
 
 export type TipoPeriodo = "dia" | "semana" | "mes" | "ano" | "total";
