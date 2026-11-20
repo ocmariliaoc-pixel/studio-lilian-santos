@@ -51,39 +51,42 @@ export async function salvarServico(_: AcaoState, formData: FormData): Promise<A
 }
 
 /**
- * Serviço de modelo: a admin escolhe para quais serviços existe a versão "Modelo — <serviço>"
- * (categoria Modelo, valor a combinar = R$ 0 na tabela, mesma duração e retorno do serviço).
- * Marcados: cria ou reativa; desmarcados: desativa (mantém o histórico).
+ * Serviço de modelo (geral, sem detalhar): a admin escolhe os grupos ("Micro labial", "Lash"…) ou digita outro.
+ * Cada um vira "Modelo — <nome>" (categoria Modelo, valor a combinar = R$ 0 na tabela). Duração e retorno vêm
+ * do maior serviço pago do grupo (sem grupo: 60 min). Marcados: cria ou reativa; desmarcados: desativa.
  */
-export async function salvarModelos(baseIds: string[]): Promise<AcaoState> {
+export async function salvarModelos(escolhas: { nome: string; categoria: string | null }[]): Promise<AcaoState> {
   await requireAdmin();
   const supabase = await createClient();
-  const { data, error } = await supabase.from("servicos").select("id, nome, categoria, duracao_min, retorno_dias, ativo");
+  const { data, error } = await supabase.from("servicos").select("id, nome, categoria, duracao_min, preco, retorno_dias, ativo");
   if (error) return falha(mensagemErroBanco(error));
-  const todos = data ?? [];
+  const todos = (data ?? []).map((s) => ({ ...s, preco: Number(s.preco) }));
   const modelos = todos.filter((s) => ehModelo(s));
-  const escolhidos = todos.filter((s) => baseIds.includes(s.id) && !ehModelo(s));
-  const nomesEscolhidos = new Set(escolhidos.map((b) => nomeModelo(b.nome).toLowerCase()));
+  const limpas = escolhas
+    .map((e) => ({ nome: e.nome.trim().replace(/\s+/g, " "), categoria: e.categoria }))
+    .filter((e) => e.nome);
+  const nomes = new Set(limpas.map((e) => nomeModelo(e.nome).toLowerCase()));
 
-  for (const b of escolhidos) {
-    const nome = nomeModelo(b.nome);
+  for (const e of limpas) {
+    const nome = nomeModelo(e.nome);
+    const doGrupo = todos.filter((s) => e.categoria && s.categoria === e.categoria && s.ativo && s.preco > 0 && !ehModelo(s));
+    const duracao = doGrupo.length ? Math.max(...doGrupo.map((s) => s.duracao_min)) : 60;
+    const retornos = doGrupo.map((s) => s.retorno_dias).filter((r): r is number => r != null);
+    const retorno = retornos.length ? Math.max(...retornos) : null;
     const existe = modelos.find((m) => m.nome.toLowerCase() === nome.toLowerCase());
     const r = existe
-      ? await supabase
-          .from("servicos")
-          .update({ ativo: true, categoria: CATEGORIA_MODELO, duracao_min: b.duracao_min, retorno_dias: b.retorno_dias })
-          .eq("id", existe.id)
+      ? await supabase.from("servicos").update({ ativo: true, categoria: CATEGORIA_MODELO }).eq("id", existe.id)
       : await supabase.from("servicos").insert({
           nome,
           categoria: CATEGORIA_MODELO,
-          duracao_min: b.duracao_min,
+          duracao_min: duracao,
           preco: 0,
-          retorno_dias: b.retorno_dias,
+          retorno_dias: retorno,
           ativo: true,
         });
     if (r.error) return falha(mensagemErroBanco(r.error));
   }
-  const desligar = modelos.filter((m) => m.ativo && !nomesEscolhidos.has(m.nome.toLowerCase())).map((m) => m.id);
+  const desligar = modelos.filter((m) => m.ativo && !nomes.has(m.nome.toLowerCase())).map((m) => m.id);
   if (desligar.length) {
     const r = await supabase.from("servicos").update({ ativo: false }).in("id", desligar);
     if (r.error) return falha(mensagemErroBanco(r.error));

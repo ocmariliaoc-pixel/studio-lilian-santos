@@ -111,6 +111,19 @@ export function nomeModelo(base: string) {
   return `Modelo — ${base}`;
 }
 
+/** Nome geral do grupo para o serviço de modelo (sem detalhar: "Micro labial", "Lash"…) */
+const NOMES_GRUPO_MODELO: Record<string, string> = {
+  "Micropigmentação · Lábios": "Micro labial",
+  "Micropigmentação · Sobrancelha": "Micro sobrancelha",
+  Cílios: "Lash",
+  Sobrancelha: "Design de sobrancelha",
+  Pele: "Limpeza de pele",
+  Lábios: "Spa labial",
+};
+export function nomeGrupoModelo(categoria: string) {
+  return NOMES_GRUPO_MODELO[categoria] ?? categoria;
+}
+
 /** Serviço/item de modelo (valor a combinar) */
 export function ehModelo(s: { nome: string; categoria?: string | null }) {
   return s.categoria === CATEGORIA_MODELO || /^modelo\s+—/i.test(s.nome);
