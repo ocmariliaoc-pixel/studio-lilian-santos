@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Crown, Search } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Crown, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { formatMoeda } from "@/lib/format";
 import { FORMAS_PAGAMENTO } from "@/lib/configuracoes";
@@ -9,7 +9,7 @@ import { dataBR, nomeForma } from "@/lib/financeiro";
 import { diasAteAniversario, diasDesde, faixaGasto, STATUS_CLIENTE, type ClienteResumo } from "@/lib/clientes";
 import { formatData, formatHora } from "@/lib/format";
 import { nomeCombina } from "@/lib/nomes";
-import { CadastrosRepetidos } from "./repetidos";
+import { CadastrosRepetidos, JuntarDialog } from "./repetidos";
 import { NomeCliente } from "./nome-cliente";
 import { cn } from "@/lib/utils";
 import { ContatoCampos } from "./contato-campos";
@@ -96,6 +96,14 @@ export function ClientesLista({
   // Nos leads: com ou sem agendamento marcado daqui para frente
   const [agendado, setAgendado] = useState<"todos" | "com" | "sem">("todos");
   const [ordem, setOrdem] = useState<Ordem>("gasto");
+  // "Ver e corrigir" nos cadastros repetidos: mostra só as clientes do par, já na lista para editar
+  const [soIds, setSoIds] = useState<string[] | null>(null);
+  const listaRef = useRef<HTMLDivElement>(null);
+  const [juntando, setJuntando] = useState(false);
+  function verPar(ids: string[]) {
+    setSoIds(ids);
+    setTimeout(() => listaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
   const [filtro, setFiltro] = useState<Filtro>(
     FILTROS.some((f) => f.v === filtroInicial) ? (filtroInicial as Filtro) : "todos"
   );
@@ -109,6 +117,7 @@ export function ClientesLista({
   const lista = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     const teste = FILTROS.find((f) => f.v === filtro)!.teste;
+    if (soIds) return soIds.map((id) => clientes.find((c) => c.id === id)).filter((c): c is ClienteResumo => !!c);
     return clientes
       .filter((c) => teste(c, hoje, extras))
       .filter((c) => filtro !== "lead" || agendado === "todos" || (agendado === "com") === !!c.proximo_agendamento)
@@ -123,7 +132,7 @@ export function ClientesLista({
         if (ordem === "recente") return b.ultima_visita.localeCompare(a.ultima_visita) || nome;
         return a.ultima_visita.localeCompare(b.ultima_visita) || nome;
       });
-  }, [clientes, busca, ordem, filtro, agendado, hoje, extras]);
+  }, [clientes, busca, ordem, filtro, agendado, hoje, extras, soIds]);
 
   const maior = Math.max(...clientes.map((c) => c.total_gasto), 1);
   const total = clientes.reduce((s, c) => s + c.total_gasto, 0);
@@ -138,7 +147,7 @@ export function ClientesLista({
       </div>
 
       <FunilGrafico clientes={clientes} />
-      <CadastrosRepetidos clientes={clientes} />
+      <CadastrosRepetidos clientes={clientes} onVer={verPar} />
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
         {FILTROS.map((f) => {
@@ -225,6 +234,37 @@ export function ClientesLista({
         <span><b>$</b> até R$ 99</span>
       </p>
 
+      <div ref={listaRef} className="scroll-mt-24" />
+      {soIds && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
+          <span className="basis-full">
+            <b>Cadastros parecidos:</b> se for a mesma pessoa, toque em <b>Juntar</b>. Se forem pessoas diferentes,
+            corrija o nome no lápis ✎ abaixo.
+          </span>
+          {lista.length === 2 && (
+            <button
+              type="button"
+              onClick={() => setJuntando(true)}
+              className="bg-primary text-primary-foreground flex h-9 items-center rounded-md px-3 font-medium"
+            >
+              Juntar
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSoIds(null)}
+            className="bg-card flex h-9 items-center gap-1 rounded-md border px-3 font-medium"
+          >
+            <X className="size-4" /> Ver todas
+          </button>
+        </div>
+      )}
+      {juntando && lista.length === 2 && (
+        <JuntarDialog
+          par={[lista[0], lista[1]]}
+          onFechar={() => setJuntando(false)}
+        />
+      )}
       {lista.length === 0 ? (
         <p className="text-muted-foreground bg-card rounded-xl border border-dashed p-8 text-center text-sm">
           {clientes.length === 0 ? "Nenhuma cliente cadastrada ainda." : "Nenhuma cliente encontrada."}
