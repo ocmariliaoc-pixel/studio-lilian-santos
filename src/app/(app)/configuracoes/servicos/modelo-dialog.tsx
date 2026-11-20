@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Plus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ehModelo, formatDuracao, nomeModelo, type Servico } from "@/lib/configuracoes";
+import { Input } from "@/components/ui/input";
+import { ehModelo, nomeGrupoModelo, nomeModelo, type Servico } from "@/lib/configuracoes";
 import { salvarModelos } from "./actions";
 
 /** Botão + janela "Serviço de modelo": marca para quais serviços existe a versão de modelo (valor a combinar). */
@@ -22,7 +23,7 @@ export function ModeloBotao({ servicos }: { servicos: Servico[] }) {
           <DialogHeader>
             <DialogTitle>Serviço de modelo</DialogTitle>
             <DialogDescription>
-              Marque os serviços que a Lilian faz em modelo. O valor fica <b>a combinar</b>: é definido caso a caso no
+              Marque os tipos de serviço que a Lilian faz em modelo (geral, sem detalhar). O valor fica <b>a combinar</b>: é definido caso a caso no
               agendamento ou ao concluir.
             </DialogDescription>
           </DialogHeader>
@@ -33,40 +34,57 @@ export function ModeloBotao({ servicos }: { servicos: Servico[] }) {
   );
 }
 
+type Opcao = { nome: string; categoria: string | null };
+
 function ModeloForm({ servicos, onFechar }: { servicos: Servico[]; onFechar: () => void }) {
   const [pendente, iniciar] = useTransition();
-  const bases = useMemo(
-    () => servicos.filter((s) => s.ativo && !ehModelo(s)).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
-    [servicos]
-  );
-  const ativosModelo = useMemo(
+  const ativos = useMemo(
     () => new Set(servicos.filter((s) => ehModelo(s) && s.ativo).map((s) => s.nome.toLowerCase())),
     [servicos]
   );
-  const [marcados, setMarcados] = useState<Set<string>>(
-    () => new Set(bases.filter((b) => ativosModelo.has(nomeModelo(b.nome).toLowerCase())).map((b) => b.id))
+  // Grupos gerais: um por categoria com serviço pago ativo (retornos e avaliações R$ 0 não contam)
+  const grupos = useMemo<Opcao[]>(() => {
+    const cats = new Set(servicos.filter((s) => s.ativo && !ehModelo(s) && s.preco > 0).map((s) => s.categoria));
+    return [...cats]
+      .map((c) => ({ nome: nomeGrupoModelo(c), categoria: c }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [servicos]);
+  // Modelos já cadastrados que não são de um grupo (digitados em "Outro")
+  const [extras, setExtras] = useState<Opcao[]>(() =>
+    servicos
+      .filter((s) => ehModelo(s) && s.ativo)
+      .map((s) => s.nome.replace(/^modelo\s+—\s*/i, ""))
+      .filter((n) => !grupos.some((g) => g.nome.toLowerCase() === n.toLowerCase()))
+      .map((n) => ({ nome: n, categoria: null }))
   );
+  const opcoes = [...grupos, ...extras];
+  const [marcados, setMarcados] = useState<Set<string>>(
+    () => new Set(opcoes.filter((o) => ativos.has(nomeModelo(o.nome).toLowerCase())).map((o) => o.nome))
+  );
+  const [outro, setOutro] = useState("");
 
-  const porCategoria = useMemo(() => {
-    const m = new Map<string, Servico[]>();
-    for (const s of bases) m.set(s.categoria, [...(m.get(s.categoria) ?? []), s]);
-    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR"));
-  }, [bases]);
-
-  function alternar(id: string) {
+  function alternar(nome: string) {
     setMarcados((atual) => {
       const n = new Set(atual);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
+      if (n.has(nome)) n.delete(nome);
+      else n.add(nome);
       return n;
     });
   }
 
+  function adicionarOutro() {
+    const nome = outro.trim().replace(/\s+/g, " ");
+    if (!nome) return;
+    if (!opcoes.some((o) => o.nome.toLowerCase() === nome.toLowerCase())) setExtras((e) => [...e, { nome, categoria: null }]);
+    setMarcados((m) => new Set([...m, opcoes.find((o) => o.nome.toLowerCase() === nome.toLowerCase())?.nome ?? nome]));
+    setOutro("");
+  }
+
   function salvar() {
     iniciar(async () => {
-      const r = await salvarModelos([...marcados]);
+      const r = await salvarModelos(opcoes.filter((o) => marcados.has(o.nome)));
       if (r.ok) {
-        toast.success(marcados.size ? `Modelo em ${marcados.size} serviço(s)` : "Serviço de modelo desligado");
+        toast.success(marcados.size ? `Modelo: ${marcados.size} serviço(s)` : "Serviço de modelo desligado");
         onFechar();
       } else toast.error(r.erro);
     });
@@ -74,32 +92,41 @@ function ModeloForm({ servicos, onFechar }: { servicos: Servico[]; onFechar: () 
 
   return (
     <div className="space-y-4">
-      <div className="max-h-[55vh] space-y-4 overflow-y-auto">
-        {porCategoria.map(([cat, lista]) => (
-          <section key={cat}>
-            <h3 className="text-muted-foreground mb-1.5 text-xs font-semibold tracking-widest uppercase">{cat}</h3>
-            <ul className="bg-card divide-y rounded-lg border">
-              {lista.map((s) => (
-                <li key={s.id}>
-                  <label className="flex min-h-12 cursor-pointer items-center gap-3 px-3 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={marcados.has(s.id)}
-                      onChange={() => alternar(s.id)}
-                      className="accent-primary size-5"
-                    />
-                    <span className="flex-1">{s.nome}</span>
-                    <span className="text-muted-foreground text-xs">{formatDuracao(s.duracao_min)}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </section>
+      <ul className="bg-card max-h-[50vh] divide-y overflow-y-auto rounded-lg border">
+        {opcoes.map((o) => (
+          <li key={o.nome}>
+            <label className="flex min-h-12 cursor-pointer items-center gap-3 px-3 text-sm">
+              <input
+                type="checkbox"
+                checked={marcados.has(o.nome)}
+                onChange={() => alternar(o.nome)}
+                className="accent-primary size-5"
+              />
+              <span className="flex-1 font-medium">{o.nome}</span>
+            </label>
+          </li>
         ))}
+      </ul>
+      <div className="flex gap-2">
+        <Input
+          value={outro}
+          onChange={(e) => setOutro(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              adicionarOutro();
+            }
+          }}
+          placeholder="Outro (ex.: Brow lamination)"
+          aria-label="Outro serviço de modelo"
+        />
+        <Button type="button" variant="outline" onClick={adicionarOutro} disabled={!outro.trim()}>
+          <Plus /> Incluir
+        </Button>
       </div>
       <p className="text-muted-foreground text-xs">
-        Cada um vira “Modelo — nome do serviço” (mesma duração e retorno), na categoria Modelo. Desmarcar desativa
-        sem apagar o histórico.
+        Cada um vira “Modelo — nome” na categoria Modelo, com valor a combinar. Desmarcar desativa sem apagar o
+        histórico.
       </p>
       <Button size="lg" className="w-full" disabled={pendente} onClick={salvar}>
         {pendente && <Loader2 className="animate-spin" />}
