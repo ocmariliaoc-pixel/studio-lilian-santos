@@ -674,13 +674,14 @@ function HorarioLivre({
     };
   }, [data, ignorarId]);
 
+  // Hoje a lista mostra também os horários que já passaram (para registrar quem já está sendo atendida),
+  // mas a sugestão automática continua sendo o primeiro horário livre a partir de agora.
   const livres = useMemo(
-    () =>
-      ocupacao
-        ? horariosLivres(ocupacao, duracao, intervalo, 15, agora && agora.dia === data && !ignorarId ? agora.min : null)
-        : [],
-    [ocupacao, duracao, intervalo, agora, data, ignorarId]
+    () => (ocupacao ? horariosLivres(ocupacao, duracao, intervalo, 15, null) : []),
+    [ocupacao, duracao, intervalo]
   );
+  const minAgora = agora && agora.dia === data && !ignorarId ? agora.min : null;
+  const proximoLivre = minAgora == null ? livres[0] : (livres.find((m) => m >= minAgora) ?? livres[0]);
   const minHora = /^\d{2}:\d{2}$/.test(hora) ? minutosDeHHMM(hora) : null;
   const choque = ocupacao && minHora != null ? choqueCom(ocupacao, minHora, Math.max(duracao, 15), intervalo) : null;
   const naLista = minHora != null && livres.includes(minHora);
@@ -695,7 +696,7 @@ function HorarioLivre({
     // Depois disso, nunca troca o horário que a pessoa escolheu (bug: 9h30 virava 08:00).
     if (sugerido.current !== data) {
       sugerido.current = data;
-      if (!ignorarId && !outro && !naLista && livres.length) return onHora(hhmmDeMinutos(livres[0]));
+      if (!ignorarId && !outro && !naLista && livres.length) return onHora(hhmmDeMinutos(proximoLivre));
     }
     if (!naLista && minHora != null) setOutro(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -712,6 +713,7 @@ function HorarioLivre({
           {livres.map((m) => (
             <option key={m} value={hhmmDeMinutos(m)}>
               {hhmmDeMinutos(m)}
+              {minAgora != null && m + 15 <= minAgora ? " (já passou)" : ""}
             </option>
           ))}
         </NativeSelect>
