@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Crown, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { formatMoeda } from "@/lib/format";
@@ -78,12 +78,15 @@ export function ClientesLista({
   acompanhamentos,
   cupons,
   filtroInicial,
+  clienteInicial,
 }: {
   clientes: ClienteResumo[];
   hoje: string;
   acompanhamentos: Acompanhamento[];
   cupons: Cupom[];
   filtroInicial?: string;
+  /** ?c=id: abre já mostrando só essa cliente (link de Resultados) */
+  clienteInicial?: string;
 }) {
   const extras = useMemo<Extras>(() => {
     const acomp = new Map<string, Acompanhamento[]>();
@@ -97,9 +100,13 @@ export function ClientesLista({
   const [agendado, setAgendado] = useState<"todos" | "com" | "sem">("todos");
   const [ordem, setOrdem] = useState<Ordem>("gasto");
   // "Ver e corrigir" nos cadastros repetidos: mostra só as clientes do par, já na lista para editar
-  const [soIds, setSoIds] = useState<string[] | null>(null);
+  const [soIds, setSoIds] = useState<string[] | null>(clienteInicial ? [clienteInicial] : null);
   const listaRef = useRef<HTMLDivElement>(null);
   const [juntando, setJuntando] = useState(false);
+  // Veio de um link com ?c=id: rola direto até a ficha
+  useEffect(() => {
+    if (clienteInicial) setTimeout(() => listaRef.current?.scrollIntoView({ block: "start" }), 100);
+  }, [clienteInicial]);
   function verPar(ids: string[]) {
     setSoIds(ids);
     setTimeout(() => listaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -237,10 +244,16 @@ export function ClientesLista({
       <div ref={listaRef} className="scroll-mt-24" />
       {soIds && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
+          {soIds.length === 1 ? (
+            <span className="basis-full">
+              Mostrando só <b>{lista[0]?.nome ?? "esta cliente"}</b>.
+            </span>
+          ) : (
           <span className="basis-full">
             <b>Cadastros parecidos:</b> se for a mesma pessoa, toque em <b>Juntar</b>. Se forem pessoas diferentes,
             corrija o nome no lápis ✎ abaixo.
           </span>
+          )}
           {lista.length === 2 && (
             <button
               type="button"

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, MessageCircle } from "lucide-react";
+import { linkWhatsApp } from "@/lib/clientes";
 import { formatMoeda } from "@/lib/format";
-import type { Barra, OrigemLeads } from "@/lib/resultados";
+import type { Barra, OrigemLeads, Prioridade } from "@/lib/resultados";
 import { cn } from "@/lib/utils";
 
 /*
@@ -489,5 +490,68 @@ export function LeadsGrafico({ origens }: { origens: OrigemLeads[] }) {
         )}
       </Moldura>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Prioridade de abordagem no mês (toque no nome → ficha da cliente)
+// ---------------------------------------------------------------------------
+export function PrioridadesLista({ itens }: { itens: Prioridade[] }) {
+  return (
+    <Moldura
+      titulo="Prioridade de abordagem este mês"
+      subtitulo="Leads parados, quem tem desconto para usar e clientes sumidas · sem agendamento marcado"
+      href="/clientes?f=lead"
+    >
+      {itens.length === 0 ? (
+        <p className="text-muted-foreground py-4 text-center text-sm">Ninguém para priorizar agora. 🎉</p>
+      ) : (
+        <ol className="-mx-2 divide-y">
+          {itens.map((p, k) => {
+            const wa = linkWhatsApp(p.whatsapp, `Oi, ${p.nome.split(" ")[0]}! Tudo bem? Aqui é do Studio Lilian Santos 💛`);
+            return (
+              <li key={p.id} className="flex items-center gap-2 px-2 py-2">
+                <Link href={`/clientes?c=${p.id}`} className="hover:bg-secondary/70 -my-1 min-w-0 flex-1 rounded-md px-1 py-1">
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <span
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                      style={{ background: k < 3 ? DOURADO_ESCURO : GRAFITE }}
+                    >
+                      {k + 1}
+                    </span>
+                    <span className="truncate">{p.nome}</span>
+                    <ChevronRight className="text-muted-foreground size-3.5 shrink-0" />
+                  </span>
+                  <span className="mt-1 flex flex-wrap gap-1 pl-8">
+                    {p.motivos.map((m) => (
+                      <span
+                        key={m}
+                        className={cn(
+                          "rounded-full border px-2 py-0.5 text-[11px]",
+                          m.includes("desconto") ? "border-gold/50 bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
+                        )}
+                      >
+                        {m}
+                      </span>
+                    ))}
+                  </span>
+                </Link>
+                {wa && (
+                  <a
+                    href={wa}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`WhatsApp de ${p.nome}`}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800"
+                  >
+                    <MessageCircle className="size-4" />
+                  </a>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Moldura>
   );
 }
