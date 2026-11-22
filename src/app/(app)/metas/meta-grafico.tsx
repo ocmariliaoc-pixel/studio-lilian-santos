@@ -6,10 +6,11 @@ import { formatMoeda } from "@/lib/format";
 /*
  * Faturamento acumulado no mês × ritmo da meta.
  * Forma: linha (mudança no tempo) + linha de referência tracejada (meta ideal).
- * Cor: slot 1 da paleta categórica de referência (#2a78d6) para o realizado; a meta é
+ * Cor: grafite da marca (#2b2622) para o realizado, com área dourada suave; a meta é
  * referência, em cinza neutro tracejado. Um eixo só. Rótulos diretos + legenda + tooltip.
  */
-const AZUL = "#2a78d6";
+const AZUL = "#2b2622"; // grafite da marca (nome mantido)
+const DOURADO = "#ad8f47";
 const CINZA = "#8f8a80";
 
 export type PontoMeta = { dia: number; acumulado: number | null; meta: number };
@@ -65,7 +66,7 @@ export function MetaGrafico({ pontos, metaMes }: { pontos: PontoMeta[]; metaMes:
             </text>
           ))}
           <path d={linhaMeta} fill="none" stroke={CINZA} strokeWidth={2} strokeDasharray="5 5" />
-          {area && <path d={area} fill={AZUL} opacity={0.1} />}
+          {area && <path d={area} fill={DOURADO} opacity={0.18} />}
           {linhaReal && <path d={linhaReal} fill="none" stroke={AZUL} strokeWidth={2} strokeLinejoin="round" />}
           {ultimo && (
             <>
