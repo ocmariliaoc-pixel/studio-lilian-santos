@@ -140,3 +140,75 @@ export function leadsPorOrigem(clientes: { origem: string | null; status: string
       (a.origem === "Não informado" ? 1 : b.origem === "Não informado" ? -1 : a.origem.localeCompare(b.origem, "pt-BR"))
   );
 }
+
+// ---------------------------------------------------------------------------
+// Prioridade de abordagem no mês: leads e clientes sumidas que vale procurar primeiro
+// ---------------------------------------------------------------------------
+export type Prioridade = {
+  id: string;
+  nome: string;
+  whatsapp: string | null;
+  pontos: number;
+  motivos: string[];
+};
+
+type ClientePrio = {
+  id: string;
+  nome: string;
+  status: string;
+  whatsapp: string | null;
+  criado_em: string;
+  ultima_visita: string | null;
+  proximo_agendamento: string | null;
+  data_nascimento: string | null;
+};
+type CupomPrio = { cliente_id: string; percentual: number; descricao: string; valido_ate: string | null; usado_em: string | null };
+
+const diasEntre = (de: string, ate: string) => Math.round((Date.parse(ate) - Date.parse(de)) / 86_400_000);
+
+/**
+ * Pontua quem abordar primeiro (sem agendamento marcado, não perdida):
+ *  desconto válido +3 (+2 se vence em até 7 dias); lead há N dias +1 a cada 15 (máx. 4);
+ *  cliente sumida (inativa) +2; aniversário no mês +1; sem WhatsApp −1 (mais difícil de abordar).
+ */
+export function prioridades(clientes: ClientePrio[], cupons: CupomPrio[], hoje: string, limite = 10): Prioridade[] {
+  const lista: Prioridade[] = [];
+  for (const c of clientes) {
+    if (c.status === "perdido" || c.proximo_agendamento) continue;
+    if (c.status !== "lead" && c.status !== "inativa") {
+      // ativa só entra se tiver desconto para usar
+      if (!cupons.some((u) => u.cliente_id === c.id && !u.usado_em && (!u.valido_ate || u.valido_ate >= hoje))) continue;
+    }
+    let pontos = 0;
+    const motivos: string[] = [];
+    for (const u of cupons) {
+      if (u.cliente_id !== c.id || u.usado_em || (u.valido_ate && u.valido_ate < hoje)) continue;
+      pontos += 3;
+      const falta = u.valido_ate ? diasEntre(hoje, u.valido_ate) : null;
+      if (falta != null && falta <= 7) pontos += 2;
+      motivos.push(
+        `${String(u.percentual).replace(".", ",")}% de desconto${falta != null ? (falta === 0 ? " · vence hoje" : ` · vence em ${falta} ${falta === 1 ? "dia" : "dias"}`) : ""}`
+      );
+      break;
+    }
+    if (c.status === "lead") {
+      const dias = Math.max(0, diasEntre(c.criado_em.slice(0, 10), hoje));
+      pontos += Math.min(4, Math.floor(dias / 15) + 1);
+      motivos.push(dias === 0 ? "lead de hoje" : `lead há ${dias} ${dias === 1 ? "dia" : "dias"}, sem agendar`);
+    }
+    if (c.status === "inativa" && c.ultima_visita) {
+      pontos += 2;
+      motivos.push(`sem vir há ${diasEntre(c.ultima_visita, hoje)} dias`);
+    }
+    if (c.data_nascimento && c.data_nascimento.slice(5, 7) === hoje.slice(5, 7)) {
+      pontos += 1;
+      motivos.push(`aniversário dia ${Number(c.data_nascimento.slice(8, 10))}`);
+    }
+    if (!c.whatsapp) {
+      pontos -= 1;
+      motivos.push("sem WhatsApp no cadastro");
+    }
+    lista.push({ id: c.id, nome: c.nome, whatsapp: c.whatsapp, pontos, motivos });
+  }
+  return lista.sort((a, b) => b.pontos - a.pontos || a.nome.localeCompare(b.nome, "pt-BR")).slice(0, limite);
+}

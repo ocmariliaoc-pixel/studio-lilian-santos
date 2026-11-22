@@ -11,8 +11,8 @@ import { ClientesLista } from "./clientes-lista";
 
 export const metadata: Metadata = { title: "Clientes" };
 
-export default async function ClientesPage({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
-  const { f } = await searchParams;
+export default async function ClientesPage({ searchParams }: { searchParams: Promise<{ f?: string; c?: string }> }) {
+  const { f, c } = await searchParams;
   const supabase = await createClient();
   const [{ data, error }, acomp, cupons] = await Promise.all([
     supabase.from("clientes_resumo").select("*"),
@@ -54,6 +54,7 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
         acompanhamentos={(acomp.data ?? []) as Acompanhamento[]}
         cupons={((cupons.data ?? []) as Cupom[]).map((c) => ({ ...c, percentual: Number(c.percentual) }))}
         filtroInicial={f}
+        clienteInicial={c && /^[0-9a-f-]{36}$/i.test(c) ? c : undefined}
       />
     </>
   );

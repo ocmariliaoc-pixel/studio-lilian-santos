@@ -16,10 +16,10 @@ import {
   nomeCurso,
   ranking,
 } from "@/lib/resultados";
-import { AtendimentosGrafico, BarrasLista, EntradasSaidas, LeadsGrafico, Quadro, type LinhaBarra } from "./resultados-graficos";
+import { AtendimentosGrafico, BarrasLista, EntradasSaidas, LeadsGrafico, PrioridadesLista, Quadro, type LinhaBarra } from "./resultados-graficos";
 import { FORMAS_PAGAMENTO } from "@/lib/configuracoes";
 import { diaDaSemana } from "@/lib/agenda";
-import { mesesEntre, type ItemRanking } from "@/lib/resultados";
+import { mesesEntre, prioridades, type ItemRanking } from "@/lib/resultados";
 import { inicioSemana, somarDias } from "@/lib/agenda";
 import { calcularMeta, ultimoDiaDoMes, type ItemCusto, type ParametrosMeta } from "@/lib/metas";
 import { PageHeader } from "@/components/page-header";
@@ -57,10 +57,10 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   let de = isDataISO(sp.de) ? sp.de : inicioStudio;
   let ate = isDataISO(sp.ate) ? sp.ate : hoje;
   if (de > ate) [de, ate] = [ate, de];
-  const [lancP, agP, prodsP, clisP] = await Promise.all([
+  const [lancP, agP, prodsP, clisP, todasP, cuponsP] = await Promise.all([
     supabase
       .from("lancamentos")
-      .select("tipo, valor, valor_liquido, categoria, descricao, data, produto_id, quantidade, agendamento_id, forma_pagamento, cliente_nome")
+      .select("tipo, valor, valor_liquido, categoria, descricao, data, produto_id, quantidade, agendamento_id, forma_pagamento, cliente_nome, cliente_id")
       .eq("cancelado", false)
       .gte("data", de)
       .lte("data", ate),
@@ -76,6 +76,10 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
       .select("origem, status, criado_em")
       .gte("criado_em", `${de}T00:00:00-03:00`)
       .lte("criado_em", `${ate}T23:59:59-03:00`),
+    supabase
+      .from("clientes_resumo")
+      .select("id, nome, status, whatsapp, criado_em, ultima_visita, proximo_agendamento, data_nascimento"),
+    supabase.from("cupons").select("cliente_id, percentual, descricao, valido_ate, usado_em"),
   ]);
   const [meta, doMes, recentes, daSemana, contasFixas] = await Promise.all([
     supabase.from("metas").select("*").lte("mes", mes).order("mes", { ascending: false }).limit(1).maybeSingle(),
@@ -202,9 +206,22 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
     "/financeiro?p=total&f=saidas",
     gasto
   );
+  // Clientes que mais gastaram: cada nome abre a ficha da cliente
+  const idPorNome = new Map<string, string>();
+  for (const l of pagos) if (l.cliente_nome && l.cliente_id) idPorNome.set(String(l.cliente_nome), String(l.cliente_id));
   const topClientes: LinhaBarra[] = somaPor(pagos.filter((l) => l.cliente_nome), (l) => String(l.cliente_nome))
     .slice(0, 8)
-    .map(([nome, valor]) => ({ nome, valor, texto: formatMoeda(valor), href: "/clientes" }));
+    .map(([nome, valor]) => ({
+      nome,
+      valor,
+      texto: formatMoeda(valor),
+      href: idPorNome.has(nome) ? `/clientes?c=${idPorNome.get(nome)}` : "/clientes",
+    }));
+  const prioridade = prioridades(
+    ((todasP.data ?? []) as Parameters<typeof prioridades>[0]),
+    ((cuponsP.data ?? []) as { cliente_id: string; percentual: number; descricao: string; valido_ate: string | null; usado_em: string | null }[]).map((u) => ({ ...u, percentual: Number(u.percentual) })),
+    hoje
+  );
   const SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
   const porDiaSemana = [2, 3, 4, 5, 6, 0, 1].map((d) => {
     const n = datasAtend.filter((x) => diaDaSemana(x) === d).length;
@@ -341,6 +358,9 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
 
       <h2 className="mt-8 mb-3 font-sans text-base font-semibold">Leads</h2>
       <LeadsGrafico origens={origens} />
+      <div className="mt-4">
+        <PrioridadesLista itens={prioridade} />
+      </div>
 
       <div className="mt-10 mb-4 flex flex-wrap items-center justify-between gap-3 border-t pt-6">
         <h2 className="font-sans text-base font-semibold">Meta do mês</h2>
