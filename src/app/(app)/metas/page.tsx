@@ -16,7 +16,10 @@ import {
   nomeCurso,
   ranking,
 } from "@/lib/resultados";
-import { AtendimentosGrafico, LeadsGrafico, Ranking } from "./resultados-graficos";
+import { AtendimentosGrafico, BarrasLista, EntradasSaidas, LeadsGrafico, Quadro, type LinhaBarra } from "./resultados-graficos";
+import { FORMAS_PAGAMENTO } from "@/lib/configuracoes";
+import { diaDaSemana } from "@/lib/agenda";
+import { mesesEntre, type ItemRanking } from "@/lib/resultados";
 import { inicioSemana, somarDias } from "@/lib/agenda";
 import { calcularMeta, ultimoDiaDoMes, type ItemCusto, type ParametrosMeta } from "@/lib/metas";
 import { PageHeader } from "@/components/page-header";
@@ -24,7 +27,6 @@ import { ErroMigracao } from "@/components/erro-migracao";
 import { SomenteLeitura } from "@/components/somente-leitura";
 import { Button } from "@/components/ui/button";
 import { cookies } from "next/headers";
-import { cn } from "@/lib/utils";
 import { MetaForm } from "./meta-form";
 import { DiasBotoes } from "./dias-botoes";
 import { MetaGrafico, type PontoMeta } from "./meta-grafico";
@@ -58,7 +60,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   const [lancP, agP, prodsP, clisP] = await Promise.all([
     supabase
       .from("lancamentos")
-      .select("tipo, valor, valor_liquido, categoria, descricao, data, produto_id, quantidade, agendamento_id")
+      .select("tipo, valor, valor_liquido, categoria, descricao, data, produto_id, quantidade, agendamento_id, forma_pagamento, cliente_nome")
       .eq("cancelado", false)
       .gte("data", de)
       .lte("data", ate),
@@ -167,6 +169,66 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
       .filter((l) => l.categoria === "Curso" && !l.agendamento_id && !ehSinal(l.descricao))
       .map((l) => ({ nome: nomeCurso(String(l.descricao)), valor: Number(l.valor) })),
   ]);
+  // Quadros e gráficos extras do período
+  const pagos = entradasP.filter((l) => Number(l.valor) > 0);
+  const atendPagos = entradasP.filter((l) => l.categoria === "Serviço" && Number(l.valor) > 0);
+  const ticketPeriodo = atendPagos.length ? atendPagos.reduce((t, l) => t + Number(l.valor), 0) / atendPagos.length : 0;
+  const brindes = entradasP.filter((l) => Number(l.valor) === 0).length;
+  const somaPor = (lista: typeof lp, chave: (l: (typeof lp)[number]) => string) => {
+    const m = new Map<string, number>();
+    for (const l of lista) m.set(chave(l), (m.get(chave(l)) ?? 0) + Number(l.valor));
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const moedaLinhas = (pares: [string, number][], href: string, total: number): LinhaBarra[] =>
+    pares.map(([nome, valor]) => ({
+      nome,
+      valor,
+      texto: formatMoeda(valor),
+      detalhe: total ? `${Math.round((valor / total) * 100)}%` : undefined,
+      href,
+    }));
+  const formasLinhas = moedaLinhas(
+    somaPor(pagos, (l) => (l.forma_pagamento ? FORMAS_PAGAMENTO[l.forma_pagamento as keyof typeof FORMAS_PAGAMENTO] ?? "Outro" : "Sem forma")),
+    "/financeiro?p=total&f=entradas",
+    arrecadado
+  );
+  const categoriasLinhas = moedaLinhas(
+    somaPor(pagos, (l) => l.categoria || "Outro"),
+    "/financeiro?p=total&f=entradas",
+    arrecadado
+  );
+  const saidasLinhas = moedaLinhas(
+    somaPor(lp.filter((l) => l.tipo === "saida"), (l) => l.categoria || "Outros").slice(0, 8),
+    "/financeiro?p=total&f=saidas",
+    gasto
+  );
+  const topClientes: LinhaBarra[] = somaPor(pagos.filter((l) => l.cliente_nome), (l) => String(l.cliente_nome))
+    .slice(0, 8)
+    .map(([nome, valor]) => ({ nome, valor, texto: formatMoeda(valor), href: "/clientes" }));
+  const SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+  const porDiaSemana = [2, 3, 4, 5, 6, 0, 1].map((d) => {
+    const n = datasAtend.filter((x) => diaDaSemana(x) === d).length;
+    return { nome: SEMANA[d], valor: n, texto: String(n), href: `/agenda?v=semana` } as LinhaBarra;
+  });
+  const entradasSaidasMes = mesesEntre(de, ate).map((mes) => {
+    const fimMes = ultimoDiaDoMes(mes);
+    const doM = lp.filter((l) => l.data >= mes && l.data <= fimMes);
+    const [a, mm] = mes.split("-").map(Number);
+    return {
+      chave: mes.slice(0, 7),
+      rotulo: `${nomeMes(mm).slice(0, 3)}/${String(a).slice(2)}`,
+      entradas: doM.filter((l) => l.tipo === "entrada").reduce((t, l) => t + Number(l.valor), 0),
+      saidas: doM.filter((l) => l.tipo === "saida").reduce((t, l) => t + Number(l.valor), 0),
+    };
+  });
+  const rankLinhas = (itens: ItemRanking[], un: [string, string], href: string): LinhaBarra[] =>
+    itens.map((i) => ({
+      nome: i.nome,
+      valor: i.qtd,
+      texto: `${i.qtd} ${i.qtd === 1 ? un[0] : un[1]}`,
+      detalhe: i.valor > 0 ? formatMoeda(i.valor) : undefined,
+      href,
+    }));
   const origens = leadsPorOrigem((clisP.data ?? []) as { origem: string | null; status: string }[]);
 
   const rec = recentes.data ?? [];
@@ -243,34 +305,38 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
         )}
       </form>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Link href="/financeiro?p=total&f=entradas" className="bg-card hover:bg-secondary/40 rounded-xl border p-4">
-          <p className="text-muted-foreground text-xs font-medium">Dinheiro arrecadado desde {dataBR(de)}</p>
-          <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">{formatMoeda(arrecadado)}</p>
-          <p className="text-muted-foreground text-xs">líquido (sem taxas): {formatMoeda(arrecadadoLiq)}</p>
-        </Link>
-        <Link href="/financeiro?p=total&f=saidas" className="bg-card hover:bg-secondary/40 rounded-xl border p-4">
-          <p className="text-muted-foreground text-xs font-medium">Dinheiro gasto até {dataBR(ate)}</p>
-          <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">{formatMoeda(gasto)}</p>
-          <p className="text-muted-foreground text-xs">desde {dataBR(de)} · inclui investimento de abertura</p>
-        </Link>
-        <div className="bg-card rounded-xl border p-4">
-          <p className="text-muted-foreground text-xs font-medium">Saldo do período (líquido − gasto)</p>
-          <p className={cn("mt-1 text-3xl font-semibold tracking-tight tabular-nums", arrecadadoLiq - gasto < 0 && "text-destructive")}>
-            {formatMoeda(arrecadadoLiq - gasto)}
-          </p>
-          <p className="text-muted-foreground text-xs">{datasAtend.length} atendimentos no período</p>
-        </div>
+      {/* Quadros executivos: todos clicáveis */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Quadro destaque titulo={`Arrecadado desde ${dataBR(de)}`} valor={formatMoeda(arrecadado)} detalhe={`líquido ${formatMoeda(arrecadadoLiq)}`} href="/financeiro?p=total&f=entradas" />
+        <Quadro titulo={`Gasto até ${dataBR(ate)}`} valor={formatMoeda(gasto)} detalhe="inclui investimento de abertura" href="/financeiro?p=total&f=saidas" />
+        <Quadro titulo="Saldo (líquido − gasto)" valor={formatMoeda(arrecadadoLiq - gasto)} negativo={arrecadadoLiq - gasto < 0} detalhe="no período" href="/financeiro?p=total" />
+        <Quadro titulo="Atendimentos" valor={String(datasAtend.length)} detalhe={`${brindes} brindes/modelo R$ 0`} href="/agenda?v=semana" />
+        <Quadro titulo="Ticket médio" valor={formatMoeda(ticketPeriodo)} detalhe="serviços pagos no período" href="/financeiro?p=total&f=entradas" />
+        <Quadro titulo="Clientes novas" valor={String((clisP.data ?? []).length)} detalhe="cadastradas no período" href="/clientes" />
+        <Quadro titulo="Taxas da maquininha" valor={formatMoeda(arrecadado - arrecadadoLiq)} detalhe={arrecadado ? `${String(Math.round(((arrecadado - arrecadadoLiq) / arrecadado) * 1000) / 10).replace(".", ",")}% do bruto` : undefined} href="/financeiro/receber" />
+        <Quadro titulo="Vendas pagas" valor={String(pagos.length)} detalhe="lançamentos com valor" href="/financeiro?p=total&f=entradas" />
+      </div>
+
+      <h2 className="mt-8 mb-3 font-sans text-base font-semibold">Dinheiro</h2>
+      <EntradasSaidas meses={entradasSaidasMes} />
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <BarrasLista titulo="Por forma de pagamento" linhas={formasLinhas} vazio="Sem entradas no período." href="/financeiro?p=total&f=entradas" />
+        <BarrasLista titulo="Entradas por categoria" linhas={categoriasLinhas} vazio="Sem entradas no período." href="/financeiro?p=total&f=entradas" />
+        <BarrasLista titulo="Para onde foi o dinheiro" subtitulo="Saídas por categoria" linhas={saidasLinhas} vazio="Sem saídas no período." href="/financeiro?p=total&f=saidas" cor="dourado" />
       </div>
 
       <h2 className="mt-8 mb-3 font-sans text-base font-semibold">Atendimentos × esperado na meta</h2>
       <AtendimentosGrafico meses={barrasMes} semanas={barrasSemana} />
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <BarrasLista titulo="Dias da semana mais movimentados" subtitulo="Atendimentos no período" linhas={porDiaSemana} vazio="Sem atendimentos no período." href="/agenda?v=semana" />
+        <BarrasLista titulo="Clientes que mais gastaram" subtitulo="No período" linhas={topClientes} vazio="Sem vendas com cliente no período." href="/clientes" numerar />
+      </div>
 
       <h2 className="mt-8 mb-3 font-sans text-base font-semibold">O que mais sai</h2>
       <div className="grid gap-4 lg:grid-cols-3">
-        <Ranking titulo="Serviços mais procurados" itens={servicosRank} unidade={["vez", "vezes"]} vazio="Nenhum serviço no período." href="/produtos?aba=servicos" />
-        <Ranking titulo="Produtos mais vendidos" itens={produtosRank} unidade={["unidade", "unidades"]} vazio="Nenhum produto vendido no período." href="/produtos" />
-        <Ranking titulo="Cursos mais realizados" itens={cursosRank} unidade={["turma", "turmas"]} vazio="Nenhum curso no período." />
+        <BarrasLista titulo="Serviços mais procurados" linhas={rankLinhas(servicosRank, ["vez", "vezes"], "/produtos?aba=servicos")} vazio="Nenhum serviço no período." href="/produtos?aba=servicos" numerar />
+        <BarrasLista titulo="Produtos mais vendidos" linhas={rankLinhas(produtosRank, ["un.", "un."], "/produtos")} vazio="Nenhum produto vendido no período." href="/produtos" numerar />
+        <BarrasLista titulo="Cursos mais realizados" linhas={rankLinhas(cursosRank, ["turma", "turmas"], "/produtos")} vazio="Nenhum curso no período." href="/produtos" numerar />
       </div>
 
       <h2 className="mt-8 mb-3 font-sans text-base font-semibold">Leads</h2>
