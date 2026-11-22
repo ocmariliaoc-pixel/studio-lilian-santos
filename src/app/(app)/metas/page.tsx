@@ -4,7 +4,19 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getPerfil, isAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoeda } from "@/lib/format";
-import { hojeISO, nomeMes } from "@/lib/financeiro";
+import { dataBR, hojeISO, isDataISO, nomeMes } from "@/lib/financeiro";
+import { CampoData } from "@/components/ui/campo-data";
+import { DIA_DE_CURSO, ehSinal } from "@/lib/agenda";
+import {
+  atendimentosPorMes,
+  atendimentosPorSemana,
+  contaComoAtendimento,
+  ehItemServico,
+  leadsPorOrigem,
+  nomeCurso,
+  ranking,
+} from "@/lib/resultados";
+import { AtendimentosGrafico, LeadsGrafico, Ranking } from "./resultados-graficos";
 import { inicioSemana, somarDias } from "@/lib/agenda";
 import { calcularMeta, ultimoDiaDoMes, type ItemCusto, type ParametrosMeta } from "@/lib/metas";
 import { PageHeader } from "@/components/page-header";
@@ -12,19 +24,20 @@ import { ErroMigracao } from "@/components/erro-migracao";
 import { SomenteLeitura } from "@/components/somente-leitura";
 import { Button } from "@/components/ui/button";
 import { cookies } from "next/headers";
+import { cn } from "@/lib/utils";
 import { MetaForm } from "./meta-form";
 import { DiasBotoes } from "./dias-botoes";
 import { MetaGrafico, type PontoMeta } from "./meta-grafico";
 import { diasAbertos, ESCALAS, type Escala } from "@/lib/metas";
 
-export const metadata: Metadata = { title: "Metas" };
+export const metadata: Metadata = { title: "Resultados" };
 
 function mesAnteriorOuProximo(mes: string, delta: number) {
   const [a, m] = mes.split("-").map(Number);
   return new Date(Date.UTC(a, m - 1 + delta, 1)).toISOString().slice(0, 10);
 }
 
-export default async function MetasPage({ searchParams }: { searchParams: Promise<{ m?: string; dias?: string }> }) {
+export default async function MetasPage({ searchParams }: { searchParams: Promise<{ m?: string; dias?: string; de?: string; ate?: string }> }) {
   const sp = await searchParams;
   const perfil = await getPerfil();
   const hoje = hojeISO();
@@ -36,6 +49,32 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   const escala: Escala = sp.dias && sp.dias in ESCALAS ? (sp.dias as Escala) : doCookie && doCookie in ESCALAS ? (doCookie as Escala) : "ter-sab";
 
   const supabase = await createClient();
+  // Período dos resultados: desde o primeiro lançamento (abertura) até hoje, ou o que a pessoa escolher
+  const primeiro = await supabase.from("lancamentos").select("data").eq("cancelado", false).order("data").limit(1).maybeSingle();
+  const inicioStudio = (primeiro.data?.data as string | undefined) ?? `${hoje.slice(0, 7)}-01`;
+  let de = isDataISO(sp.de) ? sp.de : inicioStudio;
+  let ate = isDataISO(sp.ate) ? sp.ate : hoje;
+  if (de > ate) [de, ate] = [ate, de];
+  const [lancP, agP, prodsP, clisP] = await Promise.all([
+    supabase
+      .from("lancamentos")
+      .select("tipo, valor, valor_liquido, categoria, descricao, data, produto_id, quantidade, agendamento_id")
+      .eq("cancelado", false)
+      .gte("data", de)
+      .lte("data", ate),
+    supabase
+      .from("agendamentos")
+      .select("inicio, status, itens:agendamento_itens(nome, valor)")
+      .neq("status", "cancelado")
+      .gte("inicio", `${de}T00:00:00-03:00`)
+      .lte("inicio", `${ate}T23:59:59-03:00`),
+    supabase.from("produtos").select("id, nome"),
+    supabase
+      .from("clientes")
+      .select("origem, status, criado_em")
+      .gte("criado_em", `${de}T00:00:00-03:00`)
+      .lte("criado_em", `${ate}T23:59:59-03:00`),
+  ]);
   const [meta, doMes, recentes, daSemana, contasFixas] = await Promise.all([
     supabase.from("metas").select("*").lte("mes", mes).order("mes", { ascending: false }).limit(1).maybeSingle(),
     supabase
@@ -65,7 +104,7 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
   if (meta.error || doMes.error) {
     return (
       <>
-        <PageHeader titulo="Metas" />
+        <PageHeader titulo="Resultados" />
         <ErroMigracao arquivo="0009_metas.sql" />
       </>
     );
@@ -88,6 +127,47 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
     ticket_alvo: meta.data?.ticket_alvo ? Number(meta.data.ticket_alvo) : null,
     herdada: !!meta.data && meta.data.mes !== mes,
   };
+
+  // ---- Resultados do período ----
+  const lp = lancP.data ?? [];
+  const entradasP = lp.filter((l) => l.tipo === "entrada");
+  const arrecadado = entradasP.reduce((t, l) => t + Number(l.valor), 0);
+  const arrecadadoLiq = entradasP.reduce((t, l) => t + Number(l.valor_liquido), 0);
+  const gasto = lp.filter((l) => l.tipo === "saida").reduce((t, l) => t + Number(l.valor), 0);
+  const datasAtend = entradasP.filter((l) => contaComoAtendimento(l)).map((l) => l.data as string);
+
+  type ItemAg = { nome: string; valor: number };
+  const ags = (agP.data ?? []) as { inicio: string; status: string; itens: ItemAg[] }[];
+  const itensAg = ags.flatMap((a) => a.itens ?? []);
+  const nomesProduto = new Map((prodsP.data ?? []).map((x) => [x.id as string, x.nome as string]));
+  // Serviços: agenda + vendas antigas sem agendamento ("Design + Buço" conta os dois)
+  const servicosRank = ranking([
+    ...itensAg.filter((i) => ehItemServico(i.nome)).map((i) => ({ nome: i.nome, valor: Number(i.valor) })),
+    ...entradasP
+      .filter((l) => l.categoria === "Serviço" && !l.agendamento_id && !ehSinal(l.descricao) && !/a identificar/i.test(l.descricao))
+      .flatMap((l) => String(l.descricao).replace(/\s*\(.*?\)\s*/g, " ").split(" + ").map((nome) => ({ nome }))),
+  ]);
+  const produtosRank = ranking(
+    entradasP
+      .filter((l) => l.categoria === "Produto")
+      .map((l) => {
+        // vendas antigas sem produto ligado: "2x Brinco 29,90" → 2 × "Brinco"
+        const m = String(l.descricao).match(/^(\d+)\s*x\s+(.+?)(\s+\d+[.,]\d{2})?$/i);
+        const ligado = l.produto_id ? nomesProduto.get(l.produto_id) : undefined;
+        return {
+          nome: ligado || (m ? m[2] : String(l.descricao).replace(/\s+\d+[.,]\d{2}$/, "")),
+          qtd: ligado ? Number(l.quantidade) || 1 : m ? Number(m[1]) : Number(l.quantidade) || 1,
+          valor: Number(l.valor),
+        };
+      })
+  );
+  const cursosRank = ranking([
+    ...itensAg.filter((i) => /^curso\b/i.test(i.nome) && !DIA_DE_CURSO.test(i.nome)).map((i) => ({ nome: nomeCurso(i.nome), valor: Number(i.valor) })),
+    ...entradasP
+      .filter((l) => l.categoria === "Curso" && !l.agendamento_id && !ehSinal(l.descricao))
+      .map((l) => ({ nome: nomeCurso(String(l.descricao)), valor: Number(l.valor) })),
+  ]);
+  const origens = leadsPorOrigem((clisP.data ?? []) as { origem: string | null; status: string }[]);
 
   const rec = recentes.data ?? [];
   const brutoRec = rec.reduce((s, l) => s + Number(l.valor), 0);
@@ -133,27 +213,89 @@ export default async function MetasPage({ searchParams }: { searchParams: Promis
     };
   });
 
+  // Atendimentos × esperado (esperado = atendimentos do mês na meta, proporcional aos dias de atendimento)
+  const barrasMes = atendimentosPorMes(datasAtend, de, ate, r.atendimentosMes, abertos);
+  const barrasSemana = Object.fromEntries(
+    barrasMes.map((b) => [b.chave, atendimentosPorSemana(datasAtend, `${b.chave}-01`, de, ate, r.atendimentosMes, abertos)])
+  );
+  const qs = (extra: string) => `/metas?de=${de}&ate=${ate}&dias=${escala}${extra}`;
+
   return (
     <>
-      <PageHeader titulo="Metas" descricao="Quanto o studio precisa faturar para pagar tudo e dar lucro.">
+      <PageHeader titulo="Resultados" descricao="Quanto entrou, quanto saiu, atendimentos, o que mais sai e de onde vêm as clientes." />
+
+      {/* Período */}
+      <form method="get" action="/metas" className="bg-card mb-4 flex flex-wrap items-end gap-3 rounded-xl border p-3">
+        <input type="hidden" name="dias" value={escala} />
+        <label className="space-y-1 text-xs font-medium">
+          <span className="text-muted-foreground">Desde</span>
+          <div className="w-40"><CampoData name="de" defaultValue={de} /></div>
+        </label>
+        <label className="space-y-1 text-xs font-medium">
+          <span className="text-muted-foreground">Até</span>
+          <div className="w-40"><CampoData name="ate" defaultValue={ate} /></div>
+        </label>
+        <Button type="submit">Ver</Button>
+        {(de !== inicioStudio || ate !== hoje) && (
+          <Button asChild variant="ghost">
+            <Link href={`/metas?dias=${escala}`}>Desde a abertura</Link>
+          </Button>
+        )}
+      </form>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Link href="/financeiro?p=total&f=entradas" className="bg-card hover:bg-secondary/40 rounded-xl border p-4">
+          <p className="text-muted-foreground text-xs font-medium">Dinheiro arrecadado desde {dataBR(de)}</p>
+          <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">{formatMoeda(arrecadado)}</p>
+          <p className="text-muted-foreground text-xs">líquido (sem taxas): {formatMoeda(arrecadadoLiq)}</p>
+        </Link>
+        <Link href="/financeiro?p=total&f=saidas" className="bg-card hover:bg-secondary/40 rounded-xl border p-4">
+          <p className="text-muted-foreground text-xs font-medium">Dinheiro gasto até {dataBR(ate)}</p>
+          <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">{formatMoeda(gasto)}</p>
+          <p className="text-muted-foreground text-xs">desde {dataBR(de)} · inclui investimento de abertura</p>
+        </Link>
+        <div className="bg-card rounded-xl border p-4">
+          <p className="text-muted-foreground text-xs font-medium">Saldo do período (líquido − gasto)</p>
+          <p className={cn("mt-1 text-3xl font-semibold tracking-tight tabular-nums", arrecadadoLiq - gasto < 0 && "text-destructive")}>
+            {formatMoeda(arrecadadoLiq - gasto)}
+          </p>
+          <p className="text-muted-foreground text-xs">{datasAtend.length} atendimentos no período</p>
+        </div>
+      </div>
+
+      <h2 className="mt-8 mb-3 font-sans text-base font-semibold">Atendimentos × esperado na meta</h2>
+      <AtendimentosGrafico meses={barrasMes} semanas={barrasSemana} />
+
+      <h2 className="mt-8 mb-3 font-sans text-base font-semibold">O que mais sai</h2>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Ranking titulo="Serviços mais procurados" itens={servicosRank} unidade={["vez", "vezes"]} vazio="Nenhum serviço no período." href="/produtos?aba=servicos" />
+        <Ranking titulo="Produtos mais vendidos" itens={produtosRank} unidade={["unidade", "unidades"]} vazio="Nenhum produto vendido no período." href="/produtos" />
+        <Ranking titulo="Cursos mais realizados" itens={cursosRank} unidade={["turma", "turmas"]} vazio="Nenhum curso no período." />
+      </div>
+
+      <h2 className="mt-8 mb-3 font-sans text-base font-semibold">Leads</h2>
+      <LeadsGrafico origens={origens} />
+
+      <div className="mt-10 mb-4 flex flex-wrap items-center justify-between gap-3 border-t pt-6">
+        <h2 className="font-sans text-base font-semibold">Meta do mês</h2>
         {admin ? (
           <MetaForm parametros={{ ...parametros, custos: extrasCustos, pessoas: extrasPessoas }} nomeMes={titulo} />
         ) : (
           <SomenteLeitura />
         )}
-      </PageHeader>
+      </div>
 
-      <DiasBotoes escala={escala} mes={mes} />
+      <DiasBotoes escala={escala} mes={mes} periodo={`&de=${de}&ate=${ate}`} />
 
       <div className="mb-5 flex items-center justify-between">
         <Button asChild variant="ghost" size="icon" aria-label="Mês anterior">
-          <Link href={`/metas?m=${mesAnteriorOuProximo(mes, -1).slice(0, 7)}&dias=${escala}`}>
+          <Link href={qs(`&m=${mesAnteriorOuProximo(mes, -1).slice(0, 7)}`)}>
             <ChevronLeft className="size-5" />
           </Link>
         </Button>
         <p className="text-2xl font-semibold first-letter:uppercase">{titulo}</p>
         <Button asChild variant="ghost" size="icon" aria-label="Próximo mês">
-          <Link href={`/metas?m=${mesAnteriorOuProximo(mes, 1).slice(0, 7)}&dias=${escala}`}>
+          <Link href={qs(`&m=${mesAnteriorOuProximo(mes, 1).slice(0, 7)}`)}>
             <ChevronRight className="size-5" />
           </Link>
         </Button>

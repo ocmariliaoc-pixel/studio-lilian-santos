@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 
 /** Quais dias contam como "dia de atendimento" na meta (a escolha fica salva neste aparelho). */
-export function DiasBotoes({ escala, mes }: { escala: Escala; mes: string }) {
+export function DiasBotoes({ escala, mes, periodo = "" }: { escala: Escala; mes: string; periodo?: string }) {
   return (
     <div className="mb-4">
       <p className="text-muted-foreground mb-1.5 text-xs font-semibold tracking-widest uppercase">Dias de atendimento</p>
@@ -14,7 +14,7 @@ export function DiasBotoes({ escala, mes }: { escala: Escala; mes: string }) {
         {(Object.keys(ESCALAS) as Escala[]).map((e) => (
           <Link
             key={e}
-            href={`/metas?m=${mes.slice(0, 7)}&dias=${e}`}
+            href={`/metas?m=${mes.slice(0, 7)}&dias=${e}${periodo}`}
             onClick={() => {
               document.cookie = `metas_dias=${e}; path=/; max-age=31536000; samesite=lax`;
             }}
