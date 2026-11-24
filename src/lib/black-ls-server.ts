@@ -18,6 +18,7 @@ export async function gravarBlackLS(supabase: SupabaseClient): Promise<string | 
     }
     return todos.find((s) => s.nome.toLowerCase() === parte)?.duracao_min ?? DURACAO_PADRAO[parte] ?? 60;
   };
+  const novos: Record<string, unknown>[] = [];
   for (const b of BLACK_LS) {
     const dados = {
       nome: b.nome,
@@ -28,9 +29,14 @@ export async function gravarBlackLS(supabase: SupabaseClient): Promise<string | 
       ativo: true,
     };
     const existe = todos.find((s) => s.nome.toLowerCase() === b.nome.toLowerCase());
-    const r = existe
-      ? await supabase.from("servicos").update(dados).eq("id", existe.id)
-      : await supabase.from("servicos").insert(dados);
+    if (existe) {
+      const r = await supabase.from("servicos").update(dados).eq("id", existe.id);
+      if (r.error) return r.error.message;
+    } else novos.push(dados);
+  }
+  // os que faltam vão num pedido só (menos chance de gravar duas vezes)
+  if (novos.length) {
+    const r = await supabase.from("servicos").insert(novos);
     if (r.error) return r.error.message;
   }
   return null;
@@ -42,11 +48,35 @@ export async function gravarBlackLS(supabase: SupabaseClient): Promise<string | 
  * por ela), não mexe — quem tira depois da Black é a administradora.
  */
 export async function garantirBlackLS(supabase: SupabaseClient): Promise<string | null> {
-  if (hojeISO() > BLACK_ULTIMO_DIA) return null;
-  const { data, error } = await supabase.from("servicos").select("nome").eq("categoria", CATEGORIA_BLACK);
+  const { data, error } = await supabase
+    .from("servicos")
+    .select("id, nome, ativo, criado_em")
+    .eq("categoria", CATEGORIA_BLACK)
+    .order("criado_em");
   if (error) return error.message;
-  if ((data ?? []).length >= BLACK_LS.length) return null;
+  const lista = data ?? [];
+  // Repetidos (duas aberturas do Início ao mesmo tempo gravaram duas vezes): fica o primeiro de cada nome
+  await limparRepetidos(supabase, lista);
+  if (hojeISO() > BLACK_ULTIMO_DIA) return null;
+  const nomes = new Set(lista.map((x) => String(x.nome).toLowerCase()));
+  if (BLACK_LS.every((b) => nomes.has(b.nome.toLowerCase()))) return null;
   return gravarBlackLS(supabase);
+}
+
+/** Desativa os serviços repetidos (mesmo nome); mantém o mais antigo (e ativo, se houver). O histórico continua. */
+async function limparRepetidos(
+  supabase: SupabaseClient,
+  lista: { id: string; nome: string; ativo: boolean; criado_em: string }[]
+) {
+  const porNome = new Map<string, typeof lista>();
+  for (const s of lista) porNome.set(s.nome.toLowerCase(), [...(porNome.get(s.nome.toLowerCase()) ?? []), s]);
+  const sobram: string[] = [];
+  for (const grupo of porNome.values()) {
+    if (grupo.length < 2) continue;
+    const fica = grupo.find((g) => g.ativo) ?? grupo[0];
+    for (const g of grupo) if (g.id !== fica.id && g.ativo) sobram.push(g.id);
+  }
+  if (sobram.length) await supabase.from("servicos").update({ ativo: false }).in("id", sobram);
 }
 
 /**

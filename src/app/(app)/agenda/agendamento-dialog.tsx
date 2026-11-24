@@ -427,7 +427,7 @@ function AgendamentoForm({
             <ul className="bg-card divide-y rounded-lg border">
               {itens.map((i, idx) => (
                 <li key={idx} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-                  <span className="min-w-0 flex-1 truncate">{i.nome}</span>
+                  <span className="min-w-0 flex-1 break-words">{i.nome}</span>
                   {i.curso_dias && editavel && /^\d{2}:\d{2}$/.test(hora) ? (
                     <span className="flex basis-full items-center gap-2 text-xs sm:order-last">
                       <span className="text-muted-foreground shrink-0">1º dia: {hora} até</span>
