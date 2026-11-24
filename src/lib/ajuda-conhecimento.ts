@@ -45,6 +45,15 @@ Início · Agenda · Clientes · Financeiro (Caixa, Contas a pagar, Contas a rec
 - Cada tipo vira "Modelo — <tipo>", com valor "a combinar": o valor é digitado no agendamento ou ao concluir. Se ficar 0, conta como brinde.
 - Retorno de micro faz parte do pacote (R$ 0). Retoque e Avaliação valem R$ 0.
 
+## Black LS (28, 29 e 30/11/2026)
+- Combo = 2 procedimentos por um único valor. Serviços na categoria "Black LS" da agenda:
+  - Combo 1 (sem retoque): Nanofios + Micro labial — R$ 689,90 (de R$ 1.098,00).
+  - Combo 2: Nanofios + Dermaplaning ou Lash lifting (a cliente escolhe um) — R$ 599,90 (de R$ 719,00 a R$ 749,00).
+  - Combo 3: Brow lamination + Dermaplaning ou Lash lifting (a cliente escolhe um) — R$ 199,90 (de R$ 240,00 a R$ 270,00).
+  - Nanofios — R$ 489,90 (de R$ 599,90). Shadow — R$ 349,90 (de R$ 450,00).
+- Pagamento na Black: Pix, débito ou crédito; a partir de R$ 150,00 em até 3x. Valores sujeitos a disponibilidade.
+- Na agenda, escolher o serviço "Black LS · …" certo (cada escolha do combo 2 e 3 é um serviço). Depois do dia 30/11 os serviços Black LS são desativados.
+
 ## Clientes
 - Lista com busca (sem acento, acha nome parecido), filtros: Mensagens a enviar, Com desconto, Todas, Leads (Todos / Com agendamento / Sem agendamento), Ganhos, Perdidos, Aniversário no mês.
 - Ordem: Quem mais gasta · Veio por último · Sem vir há mais tempo — sempre pela data do ÚLTIMO atendimento (nunca pela data do cadastro; quem nunca veio fica no fim).
