@@ -8,13 +8,18 @@ import { cn } from "@/lib/utils";
 type Mensagem = { role: "user" | "assistant"; content: string };
 
 const SUGESTOES = [
+  "Como estamos em relação à meta deste mês? O que fazer para bater?",
+  "Quanto entrou e quanto saiu desde a abertura? Estamos no caminho certo?",
+  "Quais clientes devo abordar primeiro esta semana?",
+  "Quais dias e horários estão mais vazios? Vale fechar algum?",
+  "Quais serviços e produtos vendem mais? O que vale divulgar?",
+  "Tem conta atrasada ou vencendo este mês?",
   "Como a meta do mês é calculada?",
-  "O que é o valor líquido?",
-  "Como fecho um dia na agenda?",
-  "Como lanço uma venda com desconto?",
-  "O que faço com as pendências do extrato da Ton?",
   "O que eu mesma posso ajustar e o que preciso pedir à Marilia?",
 ];
+
+// Marcador de status enviado pelo servidor enquanto a Lis consulta os dados: \u001e texto \u001e
+const MARCADOR = /\u001e([^\u001e]*)\u001e/g;
 
 /** Negrito (**texto**), listas (- / 1.) e parágrafos — o suficiente para as respostas. */
 function Texto({ texto }: { texto: string }) {
@@ -56,6 +61,7 @@ export function Chat({ nome }: { nome: string }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [statusLis, setStatusLis] = useState("");
   const fimRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -93,13 +99,18 @@ export function Chat({ nome }: { nome: string }) {
         const { done, value } = await leitor.read();
         if (done) break;
         acumulado += dec.decode(value, { stream: true });
-        escrever(acumulado);
+        // separa os avisos de status ("Olhando o caixa") do texto da resposta
+        let ultimo: string | null = null;
+        for (const m of acumulado.matchAll(MARCADOR)) ultimo = m[1];
+        if (ultimo !== null) setStatusLis(ultimo);
+        escrever(acumulado.replace(MARCADOR, "").replace(/\u001e[^\u001e]*$/, ""));
       }
-      if (!acumulado.trim()) escrever("⚠ Não consegui responder agora. Tente de novo.");
+      if (!acumulado.replace(MARCADOR, "").trim()) escrever("⚠ Não consegui responder agora. Tente de novo.");
     } catch (e) {
       if ((e as Error).name !== "AbortError") escrever("⚠ Sem conexão. Confira a internet e tente de novo.");
     } finally {
       setEnviando(false);
+      setStatusLis("");
       abortRef.current = null;
     }
   }
@@ -109,11 +120,11 @@ export function Chat({ nome }: { nome: string }) {
       {mensagens.length === 0 ? (
         <div className="bg-card rounded-xl border p-5">
           <p className="flex items-center gap-2 font-semibold">
-            <Sparkles className="text-gold size-5" /> Oi, {nome}! Em que posso ajudar?
+            <Sparkles className="text-gold size-5" /> Oi, {nome}! Eu sou a Lis. Em que posso ajudar?
           </p>
           <p className="text-muted-foreground mt-1 text-sm">
-            Eu conheço as regras e as telas do sistema. Não vejo os dados das clientes nem os números do studio — para
-            isso, eu te digo onde olhar.
+            Eu conheço as regras do sistema e consulto os números do studio (caixa, atendimentos, clientes, meta,
+            produtos, contas e agenda) para te ajudar a decidir. Não altero nada — só olho e sugiro.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {SUGESTOES.map((s) => (
@@ -140,10 +151,17 @@ export function Chat({ nome }: { nome: string }) {
               >
                 {m.role === "assistant" && !m.content ? (
                   <span className="text-muted-foreground flex items-center gap-2 text-sm">
-                    <Loader2 className="size-4 animate-spin" /> Pensando…
+                    <Loader2 className="size-4 animate-spin" /> {statusLis ? `${statusLis}…` : "Pensando…"}
                   </span>
                 ) : m.role === "assistant" ? (
-                  <Texto texto={m.content} />
+                  <>
+                    <Texto texto={m.content} />
+                    {enviando && i === mensagens.length - 1 && statusLis && (
+                      <span className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
+                        <Loader2 className="size-4 animate-spin" /> {statusLis}…
+                      </span>
+                    )}
+                  </>
                 ) : (
                   m.content
                 )}
@@ -172,7 +190,7 @@ export function Chat({ nome }: { nome: string }) {
           }}
           rows={1}
           maxLength={2000}
-          placeholder="Escreva sua dúvida…"
+          placeholder="Pergunte para a Lis…"
           aria-label="Sua dúvida"
           className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-base outline-none"
         />
