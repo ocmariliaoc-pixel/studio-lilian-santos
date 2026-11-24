@@ -326,7 +326,8 @@ function AgendamentoForm({
   const porCategoria = useMemo(() => {
     const m = new Map<string, Servico[]>();
     for (const s of servicos) m.set(s.categoria, [...(m.get(s.categoria) ?? []), s]);
-    return [...m.entries()];
+    // promoção (Black LS) em primeiro na lista
+    return [...m.entries()].sort(([a], [b]) => Number(b === "Black LS") - Number(a === "Black LS"));
   }, [servicos]);
 
   function adicionar(id: string) {

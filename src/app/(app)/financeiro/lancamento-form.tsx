@@ -340,7 +340,9 @@ function LancamentoForm({
                 }}
               >
                 <option value="">{servicosEscolhidos.length ? "Adicionar outro serviço…" : "Escolha o serviço, produto ou curso…"}</option>
-                {[...new Set(tabelaServicos.map((s) => s.categoria ?? "Serviços"))].map((cat) => (
+                {[...new Set(tabelaServicos.map((s) => s.categoria ?? "Serviços"))]
+                  .sort((a, b) => Number(b === "Black LS") - Number(a === "Black LS"))
+                  .map((cat) => (
                   <optgroup key={cat} label={`Serviços · ${cat}`}>
                     {tabelaServicos
                       .filter((s) => (s.categoria ?? "Serviços") === cat)
