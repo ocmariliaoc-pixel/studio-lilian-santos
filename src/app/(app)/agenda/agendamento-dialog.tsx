@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Ban, CalendarCheck, Check, Loader2, MessageCircle, RotateCcw, UserX, X } from "lucide-react";
+import { Ban, CalendarCheck, Check, ChevronDown, Loader2, MessageCircle, RotateCcw, UserX, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -455,27 +455,32 @@ function AgendamentoForm({
             </ul>
           )}
           {editavel && (
-            <NativeSelect id="adicionar-servico" value="" onChange={(e) => adicionar(e.target.value)}>
-              <option value="">{itens.length ? "+ Adicionar outro serviço ou curso" : "Escolha o serviço ou curso"}</option>
-              {porCategoria.map(([cat, lista]) => (
-                <optgroup key={cat} label={cat}>
-                  {lista.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nome} · {formatDuracao(s.duracao_min)} · {precoTexto(s, formatMoeda)}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-              {cursos && cursos.length > 0 && (
-                <optgroup label="Cursos">
-                  {cursos.map((c) => (
-                    <option key={c.id} value={`curso:${c.id}`}>
-                      {c.nome} · {c.duracao_dias == null ? "1 dia" : c.duracao_dias <= 0.5 ? "meio dia (4h)" : `${c.duracao_dias} ${c.duracao_dias === 1 ? "dia" : "dias"}`} · {formatMoeda(c.preco)}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </NativeSelect>
+            <EscolherServico
+              rotulo={itens.length ? "+ Adicionar outro serviço ou curso" : "Escolha o serviço ou curso"}
+              grupos={[
+                ...porCategoria.map(([cat, lista]) => ({
+                  titulo: cat,
+                  opcoes: lista.map((s) => ({
+                    valor: s.id,
+                    nome: s.nome,
+                    detalhe: `${formatDuracao(s.duracao_min)} · ${precoTexto(s, formatMoeda)}`,
+                  })),
+                })),
+                ...(cursos && cursos.length
+                  ? [
+                      {
+                        titulo: "Cursos",
+                        opcoes: cursos.map((c) => ({
+                          valor: `curso:${c.id}`,
+                          nome: c.nome,
+                          detalhe: `${c.duracao_dias == null ? "1 dia" : c.duracao_dias <= 0.5 ? "meio dia (4h)" : `${c.duracao_dias} ${c.duracao_dias === 1 ? "dia" : "dias"}`} · ${formatMoeda(c.preco)}`,
+                        })),
+                      },
+                    ]
+                  : []),
+              ]}
+              onEscolher={adicionar}
+            />
           )}
           {!a && diasCurso.length > 0 && (
             <div className="space-y-2 rounded-md border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950">
@@ -746,6 +751,97 @@ function HorarioLivre({
         <p className="text-xs text-amber-800">
           {ocupacao.abre == null ? "O studio não abre neste dia." : "Nenhum horário livre neste dia para esses serviços."}
         </p>
+      )}
+    </div>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Lista própria para escolher o serviço/curso: o seletor do celular cortava os nomes longos
+// ("Black LS · Combo 2: Nanofio…"); aqui a linha toda aparece, com duração e preço embaixo.
+// ---------------------------------------------------------------------------
+type GrupoOpcoes = { titulo: string; opcoes: { valor: string; nome: string; detalhe: string }[] };
+
+function EscolherServico({
+  rotulo,
+  grupos,
+  onEscolher,
+}: {
+  rotulo: string;
+  grupos: GrupoOpcoes[];
+  onEscolher: (valor: string) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const [busca, setBusca] = useState("");
+  const termo = busca
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  const combina = (n: string) =>
+    !termo ||
+    n
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .includes(termo);
+  const visiveis = grupos
+    .map((g) => ({ ...g, opcoes: g.opcoes.filter((o) => combina(o.nome) || combina(g.titulo)) }))
+    .filter((g) => g.opcoes.length);
+
+  return (
+    <div className="space-y-2">
+      <button
+        id="adicionar-servico"
+        type="button"
+        onClick={() => setAberto((x) => !x)}
+        aria-expanded={aberto}
+        className="border-input bg-card flex h-11 w-full items-center justify-between rounded-md border px-3 text-left text-base shadow-xs"
+      >
+        <span className={cn(!aberto && "text-muted-foreground")}>{aberto ? "Fechar a lista" : rotulo}</span>
+        <ChevronDown className={cn("text-muted-foreground size-4 transition-transform", aberto && "rotate-180")} />
+      </button>
+      {aberto && (
+        <div className="bg-card rounded-lg border shadow-md">
+          <div className="border-b p-2">
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar (ex.: black, design, lash)"
+              aria-label="Buscar serviço"
+              className="h-10"
+            />
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {visiveis.length === 0 && <p className="text-muted-foreground p-3 text-sm">Nada encontrado.</p>}
+            {visiveis.map((g) => (
+              <div key={g.titulo}>
+                <p className="bg-secondary/70 text-muted-foreground sticky top-0 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase">
+                  {g.titulo}
+                </p>
+                <ul className="divide-y">
+                  {g.opcoes.map((o) => (
+                    <li key={o.valor}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onEscolher(o.valor);
+                          setAberto(false);
+                          setBusca("");
+                        }}
+                        className="hover:bg-secondary/60 block min-h-12 w-full px-3 py-2 text-left"
+                      >
+                        <span className="block text-sm font-medium break-words">{o.nome}</span>
+                        <span className="text-muted-foreground block text-xs">{o.detalhe}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
