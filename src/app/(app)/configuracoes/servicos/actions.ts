@@ -5,7 +5,8 @@ import { getPerfil, requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORIA_MODELO, ehModelo, nomeModelo, parseNumeroBR } from "@/lib/configuracoes";
 import { falha, mensagemErroBanco, sucesso, type AcaoState } from "@/lib/acoes";
-import { BLACK_LS, CATEGORIA_BLACK, DURACAO_PADRAO } from "@/lib/black-ls";
+import { CATEGORIA_BLACK } from "@/lib/black-ls";
+import { gravarBlackLS } from "@/lib/black-ls-server";
 
 export async function salvarServico(_: AcaoState, formData: FormData): Promise<AcaoState> {
   const id = String(formData.get("id") ?? "") || null;
@@ -104,31 +105,8 @@ export async function salvarModelos(escolhas: { nome: string; categoria: string 
 export async function subirBlackLS(): Promise<AcaoState> {
   await requireAdmin();
   const supabase = await createClient();
-  const { data, error } = await supabase.from("servicos").select("id, nome, categoria, duracao_min, preco");
-  if (error) return falha(mensagemErroBanco(error));
-  const todos = (data ?? []).map((s) => ({ ...s, preco: Number(s.preco) }));
-  const duracao = (parte: string) => {
-    if (parte === "micro labial") {
-      const micros = todos.filter((s) => s.categoria === "Micropigmentação · Lábios" && s.preco > 0);
-      return micros.length ? Math.max(...micros.map((s) => s.duracao_min)) : DURACAO_PADRAO[parte];
-    }
-    return todos.find((s) => s.nome.toLowerCase() === parte)?.duracao_min ?? DURACAO_PADRAO[parte] ?? 60;
-  };
-  for (const b of BLACK_LS) {
-    const dados = {
-      nome: b.nome,
-      categoria: CATEGORIA_BLACK,
-      duracao_min: Math.min(600, b.partes.reduce((t, p) => t + duracao(p), 0)),
-      preco: b.preco,
-      retorno_dias: b.retorno,
-      ativo: true,
-    };
-    const existe = todos.find((s) => s.nome.toLowerCase() === b.nome.toLowerCase());
-    const r = existe
-      ? await supabase.from("servicos").update(dados).eq("id", existe.id)
-      : await supabase.from("servicos").insert(dados);
-    if (r.error) return falha(mensagemErroBanco(r.error));
-  }
+  const erro = await gravarBlackLS(supabase);
+  if (erro) return falha(mensagemErroBanco({ message: erro }));
   revalidatePath("/configuracoes/servicos");
   revalidatePath("/produtos");
   revalidatePath("/agenda");
