@@ -47,3 +47,34 @@ export async function garantirBlackLS(supabase: SupabaseClient) {
   if ((data ?? []).length >= BLACK_LS.length) return;
   await gravarBlackLS(supabase);
 }
+
+/**
+ * Correções de preço pedidas pelo studio, aplicadas uma vez quando uma administradora abre o Início
+ * (sem precisar rodar SQL). Só mexe enquanto o preço antigo ainda estiver lá.
+ *  - Lash Lifting: R$ 80 → R$ 120 (tabela + agendamentos ainda não concluídos que estavam com R$ 80).
+ */
+export async function aplicarCorrecoesDePreco(supabase: SupabaseClient) {
+  const { data: lash } = await supabase.from("servicos").select("id, preco").ilike("nome", "lash lifting");
+  for (const s of lash ?? []) {
+    if (Number(s.preco) !== 80) continue;
+    const r = await supabase.from("servicos").update({ preco: 120 }).eq("id", s.id);
+    if (r.error) return;
+    // agendamentos futuros (agendado/confirmado) com o item a R$ 80 → R$ 120 e total recalculado
+    const { data: itens } = await supabase
+      .from("agendamento_itens")
+      .select("id, agendamento_id, agendamento:agendamentos(status)")
+      .eq("servico_id", s.id)
+      .eq("valor", 80);
+    const abertos = (itens ?? []).filter((i) => {
+      const st = (i.agendamento as unknown as { status: string } | null)?.status;
+      return st === "agendado" || st === "confirmado";
+    });
+    if (!abertos.length) continue;
+    await supabase.from("agendamento_itens").update({ valor: 120 }).in("id", abertos.map((i) => i.id));
+    for (const agId of new Set(abertos.map((i) => i.agendamento_id as string))) {
+      const { data: todos } = await supabase.from("agendamento_itens").select("valor").eq("agendamento_id", agId);
+      const total = Math.round((todos ?? []).reduce((t, i) => t + Number(i.valor), 0) * 100) / 100;
+      await supabase.from("agendamentos").update({ valor_total: total }).eq("id", agId);
+    }
+  }
+}

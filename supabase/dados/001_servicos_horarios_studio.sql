@@ -12,7 +12,7 @@ from (values
   ('Design personalizado com coloração',   'Sobrancelha',                   45,  65.00,  20, true),  -- duração estimada
   ('Brow Lamination',                      'Sobrancelha',                   60, 120.00,  45, true),  -- 1ª→2ª: 60 dias; manutenção: 45
   -- Cílios
-  ('Lash Lifting',                         'Cílios',                        60,  80.00,  45, true),  -- 1ª→2ª: 60 dias; manutenção: 45
+  ('Lash Lifting',                         'Cílios',                        60, 120.00,  45, true),  -- 1ª→2ª: 60 dias; manutenção: 45
   -- Depilação (volume)
   ('Epilação de buço',                     'Depilação',                     15,  15.00,  20, true),  -- duração estimada, retorno sugerido
   -- Micropigmentação de sobrancelhas
