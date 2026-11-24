@@ -5,8 +5,6 @@ import { formatDataExtenso, saudacao } from "@/lib/format";
 import { lerStatusInventario } from "@/lib/produtos-server";
 import { AlertaInventario } from "@/components/alerta-inventario";
 import { AlertaExtrato } from "@/components/alerta-extrato";
-import { BlackLSCard } from "./configuracoes/servicos/black-ls-card";
-import { BLACK_ULTIMO_DIA } from "@/lib/black-ls";
 import { aplicarCorrecoesDePreco, garantirBlackLS } from "@/lib/black-ls-server";
 import { MensagensDoDia } from "@/components/mensagens-do-dia";
 import { AcoesRapidas } from "@/components/acoes-rapidas";
@@ -44,10 +42,8 @@ export default async function InicioPage() {
   // Dados do formulário de venda/despesa
   const supabase = await createClient();
   // Black LS: entra na agenda sozinha quando uma administradora abre o Início (até 30/11)
-  // (o erro, se houver, aparece no quadro da Black para a gente saber o motivo)
-  let erroBlack: string | null = null;
   if (admin) {
-    erroBlack = await garantirBlackLS(supabase);
+    await garantirBlackLS(supabase);
     await aplicarCorrecoesDePreco(supabase);
   }
   const [taxas, servicos, produtos, clientes, config] = await Promise.all([
@@ -98,17 +94,6 @@ export default async function InicioPage() {
       </div>
 
       {admin && <AlertaExtrato hoje={hoje} />}
-      {/* Black LS: quadro visível até 30/11 (mostra se já está na agenda ou o erro); depois, botão para tirar */}
-      {admin &&
-        (() => {
-          const lista = (servicos.data ?? []).map((x) => ({ ...x, preco: Number(x.preco) })) as Servico[];
-          const ativos = lista.filter((x) => x.categoria === "Black LS").length;
-          return hoje <= BLACK_ULTIMO_DIA || ativos > 0 ? (
-            <div className="mb-5">
-              <BlackLSCard servicos={lista} hoje={hoje} erro={erroBlack} />
-            </div>
-          ) : null;
-        })()}
 
       <AlertaInventario status={inventario} />
 
