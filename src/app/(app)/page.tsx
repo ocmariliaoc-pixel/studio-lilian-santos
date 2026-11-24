@@ -44,8 +44,10 @@ export default async function InicioPage() {
   // Dados do formulário de venda/despesa
   const supabase = await createClient();
   // Black LS: entra na agenda sozinha quando uma administradora abre o Início (até 30/11)
+  // (o erro, se houver, aparece no quadro da Black para a gente saber o motivo)
+  let erroBlack: string | null = null;
   if (admin) {
-    await garantirBlackLS(supabase);
+    erroBlack = await garantirBlackLS(supabase);
     await aplicarCorrecoesDePreco(supabase);
   }
   const [taxas, servicos, produtos, clientes, config] = await Promise.all([
@@ -96,14 +98,14 @@ export default async function InicioPage() {
       </div>
 
       {admin && <AlertaExtrato hoje={hoje} />}
-      {/* Black LS: botão para colocar os serviços na agenda (some depois de subir; volta no fim para tirar) */}
+      {/* Black LS: quadro visível até 30/11 (mostra se já está na agenda ou o erro); depois, botão para tirar */}
       {admin &&
         (() => {
           const lista = (servicos.data ?? []).map((x) => ({ ...x, preco: Number(x.preco) })) as Servico[];
           const ativos = lista.filter((x) => x.categoria === "Black LS").length;
-          return (hoje <= BLACK_ULTIMO_DIA && ativos < 7) || (hoje > BLACK_ULTIMO_DIA && ativos > 0) ? (
+          return hoje <= BLACK_ULTIMO_DIA || ativos > 0 ? (
             <div className="mb-5">
-              <BlackLSCard servicos={lista} hoje={hoje} />
+              <BlackLSCard servicos={lista} hoje={hoje} erro={erroBlack} />
             </div>
           ) : null;
         })()}

@@ -41,11 +41,12 @@ export async function gravarBlackLS(supabase: SupabaseClient): Promise<string | 
  * se os serviços ainda não existem, eles são criados. Se já existem (mesmo desativados
  * por ela), não mexe — quem tira depois da Black é a administradora.
  */
-export async function garantirBlackLS(supabase: SupabaseClient) {
-  if (hojeISO() > BLACK_ULTIMO_DIA) return;
-  const { data } = await supabase.from("servicos").select("nome").eq("categoria", CATEGORIA_BLACK);
-  if ((data ?? []).length >= BLACK_LS.length) return;
-  await gravarBlackLS(supabase);
+export async function garantirBlackLS(supabase: SupabaseClient): Promise<string | null> {
+  if (hojeISO() > BLACK_ULTIMO_DIA) return null;
+  const { data, error } = await supabase.from("servicos").select("nome").eq("categoria", CATEGORIA_BLACK);
+  if (error) return error.message;
+  if ((data ?? []).length >= BLACK_LS.length) return null;
+  return gravarBlackLS(supabase);
 }
 
 /**

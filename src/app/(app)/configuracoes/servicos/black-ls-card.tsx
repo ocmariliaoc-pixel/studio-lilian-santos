@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import type { Servico } from "@/lib/configuracoes";
 import { desativarBlackLS, subirBlackLS } from "./actions";
 
 /** Black LS (28–30/11): sobe os 7 serviços com um toque e, depois do dia 30, tira da agenda. */
-export function BlackLSCard({ servicos, hoje }: { servicos: Servico[]; hoje: string }) {
+export function BlackLSCard({ servicos, hoje, erro }: { servicos: Servico[]; hoje: string; erro?: string | null }) {
   const [pendente, iniciar] = useTransition();
   const ativos = servicos.filter((s) => s.categoria === CATEGORIA_BLACK && s.ativo);
   const acabou = hoje > BLACK_ULTIMO_DIA;
@@ -47,11 +48,23 @@ export function BlackLSCard({ servicos, hoje }: { servicos: Servico[]; hoje: str
             ))}
           </ul>
           {ativos.length >= BLACK_LS.length ? (
-            <p className="mt-3 text-sm text-emerald-300">✓ Os {BLACK_LS.length} serviços já estão na agenda, na categoria &ldquo;Black LS&rdquo;.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <p className="text-sm text-emerald-300">✓ Os {BLACK_LS.length} serviços já estão na agenda, no grupo &ldquo;Black LS&rdquo; (o primeiro da lista).</p>
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/agenda?novo=1">Agendar um serviço da Black</Link>
+              </Button>
+            </div>
           ) : (
+            <>
+            {erro && (
+              <p className="mt-3 rounded-md bg-red-950/60 px-3 py-2 text-sm text-red-200">
+                Não consegui colocar sozinho ({erro}). Toque no botão abaixo para tentar de novo.
+              </p>
+            )}
             <Button className="mt-3" variant="secondary" disabled={pendente} onClick={() => rodar(subirBlackLS, "Serviços da Black LS na agenda!")}>
               {pendente && <Loader2 className="animate-spin" />} Colocar os {BLACK_LS.length} serviços na agenda
             </Button>
+            </>
           )}
           <p className="text-sidebar-foreground/70 mt-2 text-xs">
             Duração = soma dos serviços. Pagamento: Pix, débito ou crédito; a partir de R$ 150,00 em até 3x.
