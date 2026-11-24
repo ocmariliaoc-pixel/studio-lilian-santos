@@ -30,7 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/checklist", label: "Checklist", icon: ListChecks, papeis: ["admin", "profissional"] },
   { href: "/produtos", label: "Produtos e serviços", icon: Package, papeis: ["admin", "profissional"] },
   { href: "/metas", label: "Resultados", icon: Target, papeis: ["admin", "profissional"] },
-  { href: "/ajuda", label: "Tira-dúvidas", icon: MessageCircleQuestion, papeis: ["admin"] },
+  { href: "/ajuda", label: "Lis", icon: MessageCircleQuestion, papeis: ["admin"] },
   { href: "/configuracoes", label: "Configurações", icon: Settings, papeis: ["admin"] },
 ];
 
