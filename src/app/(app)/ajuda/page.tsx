@@ -11,7 +11,7 @@ export default async function AjudaPage() {
     <>
       <PageHeader
         titulo="Lis"
-        descricao="Sua assistente de gestão: tira dúvidas do sistema, analisa os números do studio e sugere o que fazer."
+        descricao="Tira-dúvidas do sistema: regras, definições, como fazer e o que dá para ajustar."
       />
       <Chat nome={perfil.nome.split(" ")[0]} />
     </>
