@@ -1,5 +1,5 @@
-// Perguntas e respostas prontas sobre o sistema (GRÁTIS: respondidas sem IA, direto no navegador).
-// Mesmo conteúdo do guia da Lis (ajuda-conhecimento.ts). Ao mudar uma regra do sistema, atualize os dois.
+// Lis: perguntas e respostas prontas sobre o sistema (GRÁTIS: sem IA, busca direto no navegador).
+// Ao mudar uma regra do sistema, atualize a resposta aqui.
 
 export type Faq = { pergunta: string; termos: string[]; resposta: string };
 

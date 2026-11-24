@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { Servico } from "@/lib/configuracoes";
 import { ErroMigracao } from "@/components/erro-migracao";
 import { ServicosLista } from "./servicos-lista";
+import { BlackLSCard } from "./black-ls-card";
+import { hojeISO } from "@/lib/financeiro";
 
 export const metadata: Metadata = { title: "Serviços" };
 
@@ -18,5 +20,10 @@ export default async function ServicosPage() {
   }
 
   const servicos: Servico[] = (data ?? []).map((s) => ({ ...s, preco: Number(s.preco) }));
-  return <ServicosLista servicos={servicos} />;
+  return (
+    <div className="space-y-5">
+      <BlackLSCard servicos={servicos} hoje={hojeISO()} />
+      <ServicosLista servicos={servicos} />
+    </div>
+  );
 }

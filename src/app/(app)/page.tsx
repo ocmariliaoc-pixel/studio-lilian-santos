@@ -5,6 +5,8 @@ import { formatDataExtenso, saudacao } from "@/lib/format";
 import { lerStatusInventario } from "@/lib/produtos-server";
 import { AlertaInventario } from "@/components/alerta-inventario";
 import { AlertaExtrato } from "@/components/alerta-extrato";
+import { BlackLSCard } from "./configuracoes/servicos/black-ls-card";
+import { BLACK_ULTIMO_DIA } from "@/lib/black-ls";
 import { MensagensDoDia } from "@/components/mensagens-do-dia";
 import { AcoesRapidas } from "@/components/acoes-rapidas";
 import { AgendaHoje } from "@/components/agenda-hoje";
@@ -88,6 +90,17 @@ export default async function InicioPage() {
       </div>
 
       {admin && <AlertaExtrato hoje={hoje} />}
+      {/* Black LS: botão para colocar os serviços na agenda (some depois de subir; volta no fim para tirar) */}
+      {admin &&
+        (() => {
+          const lista = (servicos.data ?? []).map((x) => ({ ...x, preco: Number(x.preco) })) as Servico[];
+          const ativos = lista.filter((x) => x.categoria === "Black LS").length;
+          return (hoje <= BLACK_ULTIMO_DIA && ativos < 7) || (hoje > BLACK_ULTIMO_DIA && ativos > 0) ? (
+            <div className="mb-5">
+              <BlackLSCard servicos={lista} hoje={hoje} />
+            </div>
+          ) : null;
+        })()}
 
       <AlertaInventario status={inventario} />
 
