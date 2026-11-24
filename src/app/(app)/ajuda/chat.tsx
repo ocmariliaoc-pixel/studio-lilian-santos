@@ -4,18 +4,35 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { ArrowUp, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { buscarFaq, FAQ, parecidas, precisaDosDados } from "@/lib/ajuda-faq";
 
-type Mensagem = { role: "user" | "assistant"; content: string };
+type Mensagem = {
+  role: "user" | "assistant";
+  content: string;
+  /** "guia" = resposta pronta (grátis, sem IA); "ia" = Lis com IA */
+  fonte?: "guia" | "ia";
+  /** pergunta que gerou a resposta do guia (para "Perguntar à Lis") */
+  pergunta?: string;
+  /** perguntas prontas parecidas (quando a IA não está ligada) */
+  parecidas?: string[];
+};
 
-const SUGESTOES = [
+// Análises com a IA (olham os números do studio)
+const SUGESTOES_IA = [
   "Como estamos em relação à meta deste mês? O que fazer para bater?",
   "Quanto entrou e quanto saiu desde a abertura? Estamos no caminho certo?",
   "Quais clientes devo abordar primeiro esta semana?",
   "Quais dias e horários estão mais vazios? Vale fechar algum?",
   "Quais serviços e produtos vendem mais? O que vale divulgar?",
   "Tem conta atrasada ou vencendo este mês?",
+];
+// Dúvidas do sistema com resposta pronta (grátis)
+const SUGESTOES_GUIA = [
   "Como a meta do mês é calculada?",
-  "O que eu mesma posso ajustar e o que preciso pedir à Marilia?",
+  "O que é o valor líquido?",
+  "Como fecho um dia ou um turno na agenda?",
+  "Como subo o extrato da Ton e resolvo as pendências?",
+  "O que eu posso ajustar sozinha e o que preciso pedir à Marilia?",
 ];
 
 // Marcador de status enviado pelo servidor enquanto a Lis consulta os dados: \u001e texto \u001e
@@ -69,27 +86,46 @@ export function Chat({ nome }: { nome: string }) {
     fimRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [mensagens]);
 
-  async function perguntar(pergunta: string) {
+  async function perguntar(pergunta: string, forcarIA = false) {
     const p = pergunta.trim();
     if (!p || enviando) return;
-    const historico: Mensagem[] = [...mensagens, { role: "user", content: p }];
-    setMensagens([...historico, { role: "assistant", content: "" }]);
+    // 1) Dúvida do sistema com resposta pronta: responde de graça, sem IA
+    const achada = !forcarIA && !precisaDosDados(p) ? buscarFaq(p) : null;
+    if (achada) {
+      setMensagens((m) => [
+        ...m,
+        { role: "user", content: p },
+        { role: "assistant", content: achada.faq.resposta, fonte: "guia", pergunta: p },
+      ]);
+      setTexto("");
+      return;
+    }
+    // 2) Números, decisões ou algo fora do guia: Lis com IA
+    const base = forcarIA && mensagens.at(-1)?.fonte === "guia" ? mensagens.slice(0, -2) : mensagens;
+    const historico: Mensagem[] = [...base, { role: "user", content: p }];
+    setMensagens([...historico, { role: "assistant", content: "", fonte: "ia" }]);
     setTexto("");
     setEnviando(true);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    const escrever = (resposta: string) =>
-      setMensagens((m) => [...m.slice(0, -1), { role: "assistant", content: resposta }]);
+    const escrever = (resposta: string, extra: Partial<Mensagem> = {}) =>
+      setMensagens((m) => [...m.slice(0, -1), { role: "assistant", content: resposta, fonte: "ia", ...extra }]);
     try {
       const r = await fetch("/api/ajuda", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensagens: historico }),
+        body: JSON.stringify({ mensagens: historico.map(({ role, content }) => ({ role, content })) }),
         signal: ctrl.signal,
       });
       if (!r.ok || !r.body) {
         const j = await r.json().catch(() => null);
-        escrever(`⚠ ${j?.erro ?? "Não consegui responder agora. Tente de novo."}`);
+        const sugestoes = parecidas(p).map((f) => f.pergunta);
+        escrever(
+          r.status === 503
+            ? `A parte com IA (que olha os números e sugere) ainda não está ligada. Os números estão em **Resultados** e no **Financeiro**.${sugestoes.length ? " Veja se uma destas responde:" : " Tente perguntar de outro jeito, ex.: \"Como fecho um dia na agenda?\""}`
+            : `⚠ ${j?.erro ?? "Não consegui responder agora. Tente de novo."}`,
+          r.status === 503 ? { parecidas: sugestoes } : {}
+        );
         return;
       }
       const leitor = r.body.getReader();
@@ -123,18 +159,45 @@ export function Chat({ nome }: { nome: string }) {
             <Sparkles className="text-gold size-5" /> Oi, {nome}! Eu sou a Lis. Em que posso ajudar?
           </p>
           <p className="text-muted-foreground mt-1 text-sm">
-            Eu conheço as regras do sistema e consulto os números do studio (caixa, atendimentos, clientes, meta,
-            produtos, contas e agenda) para te ajudar a decidir. Não altero nada — só olho e sugiro.
+            Dúvidas sobre o sistema eu respondo na hora, de graça. Para olhar os números do studio (caixa,
+            atendimentos, clientes, meta, produtos, contas e agenda) e sugerir o que fazer, eu uso a IA. Não altero
+            nada — só olho e sugiro.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {SUGESTOES.map((s) => (
+          <p className="mt-4 text-xs font-semibold tracking-widest text-emerald-800 uppercase">Dúvidas do sistema · grátis</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SUGESTOES_GUIA.map((q) => (
               <button
-                key={s}
+                key={q}
                 type="button"
-                onClick={() => perguntar(s)}
+                onClick={() => perguntar(q)}
+                className="min-h-10 rounded-full border border-emerald-200 bg-emerald-50/60 px-3.5 text-left text-sm hover:border-emerald-400"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+          <details className="mt-2">
+            <summary className="text-muted-foreground cursor-pointer text-xs underline">Ver todas as {FAQ.length} dúvidas prontas</summary>
+            <ul className="mt-2 space-y-1">
+              {FAQ.map((f) => (
+                <li key={f.pergunta}>
+                  <button type="button" onClick={() => perguntar(f.pergunta)} className="hover:text-gold-dark text-left text-sm underline-offset-2 hover:underline">
+                    {f.pergunta}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+          <p className="text-gold-dark mt-5 text-xs font-semibold tracking-widest uppercase">Análises com IA · olham os números</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SUGESTOES_IA.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => perguntar(q)}
                 className="bg-secondary/60 hover:border-gold/60 min-h-10 rounded-full border px-3.5 text-left text-sm"
               >
-                {s}
+                {q}
               </button>
             ))}
           </div>
@@ -156,6 +219,30 @@ export function Chat({ nome }: { nome: string }) {
                 ) : m.role === "assistant" ? (
                   <>
                     <Texto texto={m.content} />
+                    {m.parecidas && m.parecidas.length > 0 && (
+                      <span className="mt-2 flex flex-wrap gap-1.5">
+                        {m.parecidas.map((q) => (
+                          <button
+                            key={q}
+                            type="button"
+                            onClick={() => perguntar(q)}
+                            className="bg-secondary/60 hover:border-gold/60 min-h-9 rounded-full border px-3 text-left text-sm"
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </span>
+                    )}
+                    {m.fonte === "guia" && (
+                      <span className="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-2 text-xs">
+                        <span>Resposta do guia · grátis</span>
+                        {i === mensagens.length - 1 && m.pergunta && (
+                          <button type="button" onClick={() => perguntar(m.pergunta!, true)} className="text-gold-dark font-medium underline">
+                            Não era isso? Perguntar à Lis (IA)
+                          </button>
+                        )}
+                      </span>
+                    )}
                     {enviando && i === mensagens.length - 1 && statusLis && (
                       <span className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
                         <Loader2 className="size-4 animate-spin" /> {statusLis}…
