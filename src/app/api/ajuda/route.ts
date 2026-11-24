@@ -85,13 +85,12 @@ export async function POST(req: Request) {
       // marcador de status (o navegador mostra "Olhando o caixa…" enquanto a Lis consulta)
       const status = (t: string) => enviar(`\u001e${t}\u001e`);
       try {
-        for (let volta = 0; volta < 8 && !parar; volta++) {
+        for (let volta = 0; volta < 6 && !parar; volta++) {
           const stream = client.beta.messages.stream({
-            model: "claude-opus-5-5",
-            max_tokens: 16000,
-            betas: ["server-side-fallback-2026-07-01"],
-            fallbacks: "default",
-            // análise de dados + recomendação: esforço médio (padrão do modelo), explícito
+            // Haiku 5.5: barato (≈ R$ 0,01–0,02 por pergunta) e ainda consulta os dados e sugere.
+            // Se um dia precisar de análises mais profundas, trocar por "claude-sonnet-5-5" ou "claude-opus-5-5".
+            model: "claude-haiku-5-5",
+            max_tokens: 8000,
             output_config: { effort: "medium" },
             system: [{ type: "text", text: INSTRUCOES, cache_control: { type: "ephemeral" } }],
             tools: FERRAMENTAS_LIS,
