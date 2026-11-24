@@ -106,7 +106,7 @@ export function ServicosLista({ servicos }: { servicos: Servico[] }) {
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
-                        <span className="truncate font-medium">{s.nome}</span>
+                        <span className="font-medium break-words">{s.nome}</span>
                         {!s.ativo && <Badge variant="outline">Desativado</Badge>}
                       </span>
                       <span className="text-muted-foreground mt-0.5 block text-sm">

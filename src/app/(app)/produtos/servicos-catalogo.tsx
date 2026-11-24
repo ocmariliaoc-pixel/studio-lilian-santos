@@ -37,7 +37,7 @@ export function ServicosCatalogo({ servicos, admin }: { servicos: Servico[]; adm
             {itens.map((s) => (
               <li key={s.id} className="flex items-center gap-3 px-4 py-3.5">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{s.nome}</span>
+                  <span className="block font-medium break-words">{s.nome}</span>
                   <span className="text-muted-foreground block text-sm">
                     {formatDuracao(s.duracao_min)}
                     {s.retorno_dias ? ` · retorno em ${s.retorno_dias} dias` : ""}
